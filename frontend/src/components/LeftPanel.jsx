@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState, useEffect } from "react";
 import ActorInput from "./ActorInput.jsx";
 import SliderFilter from "./SliderFilter.jsx";
 import Toggle from "./Toggle.jsx";
@@ -17,6 +17,19 @@ export default function LeftPanel({
   filters, setFilters,
   loading,
 }) {
+  // Start filters open on desktop, closed on mobile
+  const [filtersOpen, setFiltersOpen] = useState(() => window.innerWidth > 640);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 640px)");
+    const handler = (e) => {
+      // When switching to desktop, ensure filters are open
+      if (!e.matches) setFiltersOpen(true);
+    };
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
   const addWaypoint = useCallback(() => {
     setWaypoints(prev => [...prev, { id: Date.now(), branches: [{ id: Date.now() + 1, actor: null }] }]);
   }, [setWaypoints]);
@@ -48,14 +61,24 @@ export default function LeftPanel({
 
   const updateFilter = (key, val) => setFilters(f => ({ ...f, [key]: val }));
 
+  const filterSummary = [
+    filters.moviesOnly ? "Movies" : "Movies & TV",
+    filters.minYear > 1920 ? `After ${filters.minYear}` : null,
+    filters.minRating > 0 ? `★${filters.minRating}+` : null,
+    filters.minVotes > 0 ? `${filters.minVotes >= 1000 ? (filters.minVotes / 1000).toFixed(0) + "k" : filters.minVotes}+ votes` : null,
+  ].filter(Boolean).join(" · ");
+
   return (
-    <div style={{
-      width: 360, minWidth: 360,
-      borderRight: "1px solid var(--border2)",
-      padding: "24px 28px",
-      display: "flex", flexDirection: "column", gap: 28,
-      overflowY: "auto",
-    }}>
+    <div
+      className="left-panel"
+      style={{
+        width: 360, minWidth: 360,
+        borderRight: "1px solid var(--border2)",
+        padding: "24px 28px",
+        display: "flex", flexDirection: "column", gap: 28,
+        overflowY: "auto",
+      }}
+    >
       {/* Actor chain */}
       <div>
         <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--text-faint)", marginBottom: 14 }}>
@@ -156,49 +179,63 @@ export default function LeftPanel({
 
       <div style={{ height: 1, background: "var(--border2)" }} />
 
-      {/* Filters */}
+      {/* Filters — collapsible on mobile */}
       <div>
-        <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--text-faint)", marginBottom: 14 }}>
-          Filters
+        {/* Header row: label + mobile toggle */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: filtersOpen ? 14 : 0 }}>
+          <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--text-faint)" }}>
+            Filters
+          </div>
+          <button
+            className="filters-toggle"
+            onClick={() => setFiltersOpen(o => !o)}
+            style={{
+              background: "transparent", border: "1px solid var(--border)",
+              borderRadius: 4, color: "var(--text-dim)", fontSize: 10,
+              fontFamily: "'DM Mono', monospace", padding: "3px 8px",
+              cursor: "pointer", alignItems: "center", gap: 4,
+            }}
+          >
+            {filtersOpen ? "▲ hide" : "▼ " + filterSummary}
+          </button>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-          <Toggle
-            label="Movies only (no TV)"
-            checked={filters.moviesOnly}
-            onChange={(v) => updateFilter("moviesOnly", v)}
-          />
-          <SliderFilter
-            label="Released after"
-            value={filters.minYear}
-            onChange={(v) => updateFilter("minYear", v)}
-            min={1920} max={2025}
-            format={(v) => v === 1920 ? "Any year" : String(v)}
-          />
-          <SliderFilter
-            label="Min rating"
-            value={filters.minRating}
-            onChange={(v) => updateFilter("minRating", v)}
-            min={0} max={9} step={0.5}
-            format={(v) => v === 0 ? "Any" : `★ ${v.toFixed(1)}+`}
-          />
-          <SliderFilter
-            label="Min vote count"
-            value={filters.minVotes}
-            onChange={(v) => updateFilter("minVotes", v)}
-            min={0} max={500000} step={5000}
-            format={(v) => v === 0 ? "Any" : v >= 1000 ? `${(v / 1000).toFixed(0)}k+` : `${v}+`}
-          />
-        </div>
+
+        {filtersOpen && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            <Toggle
+              label="Movies only (no TV)"
+              checked={filters.moviesOnly}
+              onChange={(v) => updateFilter("moviesOnly", v)}
+            />
+            <SliderFilter
+              label="Released after"
+              value={filters.minYear}
+              onChange={(v) => updateFilter("minYear", v)}
+              min={1920} max={2025}
+              format={(v) => v === 1920 ? "Any year" : String(v)}
+            />
+            <SliderFilter
+              label="Min rating"
+              value={filters.minRating}
+              onChange={(v) => updateFilter("minRating", v)}
+              min={0} max={9} step={0.5}
+              format={(v) => v === 0 ? "Any" : `★ ${v.toFixed(1)}+`}
+            />
+            <SliderFilter
+              label="Min vote count"
+              value={filters.minVotes}
+              onChange={(v) => updateFilter("minVotes", v)}
+              min={0} max={500000} step={5000}
+              format={(v) => v === 0 ? "Any" : v >= 1000 ? `${(v / 1000).toFixed(0)}k+` : `${v}+`}
+            />
+          </div>
+        )}
       </div>
 
-      <div style={{ height: 1, background: "var(--border2)" }} />
-
       {/* Filter summary */}
-      <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "var(--text-ghost)", lineHeight: 1.7 }}>
-        {filters.moviesOnly ? "Movies" : "Movies & TV"}
-        {" · "}{filters.minYear > 1920 ? `After ${filters.minYear}` : "Any year"}
-        {" · "}{filters.minRating > 0 ? `★${filters.minRating}+` : "Any rating"}
-        {" · "}{filters.minVotes > 0 ? `${filters.minVotes >= 1000 ? (filters.minVotes / 1000).toFixed(0) + "k" : filters.minVotes}+ votes` : "Any popularity"}
+      {filtersOpen && <div style={{ height: 1, background: "var(--border2)", marginTop: -14 }} />}
+      <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "var(--text-ghost)", lineHeight: 1.7, marginTop: -14 }}>
+        {filterSummary}
         {loading && <span style={{ color: "var(--accent)", marginLeft: 6 }}>· searching…</span>}
       </div>
     </div>

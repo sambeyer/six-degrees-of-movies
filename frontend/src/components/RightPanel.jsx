@@ -33,13 +33,13 @@ function LoadingState() {
 
 export default function RightPanel({ results, loading, error, resultVersion, onClear }) {
   if (loading) return (
-    <div style={{ flex: 1, padding: "24px 32px", overflowY: "auto" }}>
+    <div className="right-panel" style={{ flex: 1, padding: "24px 32px", overflowY: "auto" }}>
       <LoadingState />
     </div>
   );
 
   if (!results) return (
-    <div style={{ flex: 1, padding: "24px 32px", overflowY: "auto" }}>
+    <div className="right-panel" style={{ flex: 1, padding: "24px 32px", overflowY: "auto" }}>
       {error
         ? <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#c87070", padding: 16, background: "var(--surface)", borderRadius: 8 }}>{error}</div>
         : <EmptyState />}
@@ -50,7 +50,7 @@ export default function RightPanel({ results, loading, error, resultVersion, onC
   const hasBranches = paths.length > 1;
 
   return (
-    <div style={{ flex: 1, padding: "24px 32px", overflowY: "auto" }}>
+    <div className="right-panel" style={{ flex: 1, padding: "24px 32px", overflowY: "auto" }}>
       <div className="fade-in-up">
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 24 }}>

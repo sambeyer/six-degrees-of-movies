@@ -206,7 +206,7 @@ export default function App() {
       </div>
 
       {/* Body */}
-      <div style={{ display: "flex", minHeight: "calc(100vh - 73px)" }}>
+      <div className="app-body" style={{ display: "flex", minHeight: "calc(100vh - 73px)" }}>
         <LeftPanel
           actorA={actorA} setActorA={setActorA}
           actorB={actorB} setActorB={setActorB}

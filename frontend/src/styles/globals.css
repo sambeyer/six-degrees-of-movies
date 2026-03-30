@@ -74,3 +74,39 @@ input[type="range"]::-webkit-slider-thumb {
   0%, 100% { opacity: 0.3; }
   50%       { opacity: 1; }
 }
+
+/* ── Mobile layout ─────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  /* Stack panels vertically */
+  .app-body {
+    flex-direction: column !important;
+  }
+
+  .left-panel {
+    width: 100% !important;
+    min-width: 0 !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--border2);
+  }
+
+  /* Show the mobile filters toggle, hide on desktop */
+  .filters-toggle {
+    display: flex !important;
+  }
+
+  /* Bigger slider thumbs for touch */
+  input[type="range"]::-webkit-slider-thumb {
+    width: 20px;
+    height: 20px;
+  }
+
+  /* Tighten right panel padding */
+  .right-panel {
+    padding: 20px 18px !important;
+  }
+}
+
+/* Hide mobile-only elements on desktop */
+.filters-toggle {
+  display: none;
+}
