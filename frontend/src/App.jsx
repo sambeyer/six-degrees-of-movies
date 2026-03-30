@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { connect } from "./api.js";
+import { connect, randomActors } from "./api.js";
 import LeftPanel from "./components/LeftPanel.jsx";
 import RightPanel from "./components/RightPanel.jsx";
 import "./styles/globals.css";
@@ -94,6 +94,19 @@ export default function App() {
 
   const debounceRef = useRef(null);
   const isPopState = useRef(false);
+
+  // Pick random actors on first load if none are set via URL
+  useEffect(() => {
+    if (!actorA && !actorB) {
+      randomActors().then((actors) => {
+        if (actors.length >= 2) {
+          setActorA(actors[0]);
+          setActorB(actors[1]);
+        }
+      }).catch(() => {});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Build the actors array for the API request, expanding waypoint branches
   const buildActorsPayload = useCallback(() => {

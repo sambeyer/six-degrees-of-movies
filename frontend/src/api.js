@@ -7,6 +7,12 @@ export async function searchActors(q, limit = 15) {
   return res.json();
 }
 
+export async function randomActors() {
+  const res = await fetch("/api/random-actors");
+  if (!res.ok) return [];
+  return res.json();
+}
+
 export async function connect(params) {
   if (connectCtrl) connectCtrl.abort();
   connectCtrl = new AbortController();

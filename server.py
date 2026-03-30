@@ -237,6 +237,29 @@ async def connect(req: ConnectRequest):
     return ConnectResponse(paths=paths, elapsed_ms=elapsed)
 
 
+@app.get("/api/random-actors")
+async def random_actors():
+    """Return 2 random well-known actors (for page-load default)."""
+    conn = open_db()
+    try:
+        has_popularity = bool(conn.execute(
+            "SELECT 1 FROM pragma_table_info('actors') WHERE name='max_votes'"
+        ).fetchone())
+        if has_popularity:
+            # Pick from actors with at least 500k votes so they're genuinely famous
+            rows = conn.execute(
+                "SELECT nconst, name FROM actors WHERE max_votes >= 500000"
+                " ORDER BY RANDOM() LIMIT 2"
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT nconst, name FROM actors ORDER BY RANDOM() LIMIT 2"
+            ).fetchall()
+        return [{"nconst": r["nconst"], "name": r["name"]} for r in rows]
+    finally:
+        conn.close()
+
+
 @app.get("/api/info")
 async def info():
     """Return database statistics."""
