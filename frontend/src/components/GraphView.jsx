@@ -130,7 +130,6 @@ function layoutGraph(nodeMap, svgW, svgH) {
 function ActorNode({ node, pos, resultVersion, isShared }) {
   const color = node.isEndpoint ? "var(--accent)" : isShared ? "#c8c8a9" : "var(--text-muted)";
   const glow = node.isEndpoint ? "0 0 14px rgba(200,169,110,0.5)" : "none";
-  const shortName = node.label.length > 16 ? node.label.slice(0, 15) + "…" : node.label;
   return (
     <g transform={`translate(${pos.x},${pos.y})`}>
       <circle
@@ -144,26 +143,14 @@ function ActorNode({ node, pos, resultVersion, isShared }) {
         className="actor-node"
         key={`${node.id}-${resultVersion}`}
         textAnchor="middle"
-        dy="0.35em"
-        style={{
-          fontSize: 10,
-          fontFamily: "'DM Mono', monospace",
-          fill: color,
-          fontWeight: node.isEndpoint ? 600 : 400,
-          pointerEvents: "none",
-          animationDelay: "0ms",
-        }}
-      >
-        {shortName}
-      </text>
-      <text
-        textAnchor="middle"
         y={ACTOR_R + 13}
         style={{
           fontSize: 9,
           fontFamily: "'Newsreader', serif",
           fill: node.isEndpoint ? "var(--text)" : "var(--text-dim)",
+          fontWeight: node.isEndpoint ? 600 : 400,
           pointerEvents: "none",
+          animationDelay: "0ms",
         }}
       >
         {node.label.length > 18 ? node.label.slice(0, 17) + "…" : node.label}
@@ -246,16 +233,33 @@ export default function GraphView({ paths, resultVersion }) {
   const { nodeMap, edgeList, svgH } = useMemo(() => {
     if (!paths || paths.length === 0) return { nodeMap: new Map(), edgeList: [], svgH: 200 };
 
-    // Collect all step-sets from all legs of all paths
+    // Build complete end-to-end step-sets suitable for layer assignment.
+    //
+    // For single-leg results: show all alternative paths from all_steps.
+    // For multi-leg results (waypoints): concatenate each leg's primary steps
+    //   into one full path. Multiple PathResults (branch combos) each get their
+    //   own full-path entry so they appear as distinct coloured lines.
     const allStepSets = [];
+
     paths.forEach((path) => {
-      path.legs.forEach((leg) => {
-        if (leg.all_steps && leg.all_steps.length > 0) {
-          leg.all_steps.forEach((steps) => allStepSets.push(steps));
-        } else {
-          allStepSets.push(leg.steps);
-        }
-      });
+      if (path.legs.length === 1) {
+        // Single leg — show all alternative paths
+        const leg = path.legs[0];
+        const alts = leg.all_steps && leg.all_steps.length > 0 ? leg.all_steps : [leg.steps];
+        alts.forEach((steps) => allStepSets.push(steps));
+      } else {
+        // Multi-leg — build one complete path by concatenating primary leg steps
+        const fullSteps = [];
+        path.legs.forEach((leg, li) => {
+          const steps = leg.steps;
+          if (li === 0) {
+            fullSteps.push(...steps);
+          } else {
+            fullSteps.push(...steps.slice(1)); // skip repeated junction actor
+          }
+        });
+        allStepSets.push(fullSteps);
+      }
     });
 
     const { nodeMap, edgeList } = buildGraph(allStepSets);
