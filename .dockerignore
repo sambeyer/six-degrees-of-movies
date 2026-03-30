@@ -1,0 +1,17 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+
+# Frontend build artefacts and deps (rebuilt inside Docker)
+frontend/node_modules/
+frontend/dist/
+
+# Local data (mounted at runtime, never baked into the image)
+actor-game-data/
+~/.actor-game/
+
+# Dev / tooling
+.claude/
+.git/
+*.md

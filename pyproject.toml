@@ -1,0 +1,23 @@
+[project]
+name = "actor-connection-game"
+version = "0.1.0"
+description = "Find the shortest path between two actors via shared movies (uses IMDB data)"
+requires-python = ">=3.11"
+dependencies = [
+    "click>=8.0",
+    "fastapi>=0.110",
+    "prompt-toolkit>=3.0",
+    "requests>=2.28",
+    "tqdm>=4.64",
+    "uvicorn[standard]>=0.29",
+]
+
+[project.scripts]
+actor-game = "actor_game:cli"
+
+[tool.hatch.build.targets.wheel]
+packages = ["actor_game.py"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

@@ -1,0 +1,13 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount the same directory used by the CLI tool so the container shares
+      # the already-downloaded DB. Override with DATA_DIR=... if needed.
+      - ${DATA_DIR:-~/.actor-game}:/data
+    environment:
+      - ACTOR_GAME_DATA_DIR=/data
+    # Restart automatically unless explicitly stopped
+    restart: unless-stopped

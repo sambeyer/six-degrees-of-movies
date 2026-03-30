@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv sync:*)",
+      "Bash(uv run:*)",
+      "Bash(curl -sv -X POST http://localhost:8000/api/connect -H 'Content-Type: application/json' -d '{\"\"\"\"actors\"\"\"\":[{\"\"\"\"nconst\"\"\"\":\"\"\"\"nm0000158\"\"\"\",\"\"\"\"name\"\"\"\":\"\"\"\"Tom Hanks\"\"\"\"},{\"\"\"\"nconst\"\"\"\":\"\"\"\"nm0000102\"\"\"\",\"\"\"\"name\"\"\"\":\"\"\"\"Kevin Bacon\"\"\"\"}],\"\"\"\"filters\"\"\"\":{\"\"\"\"max_degrees\"\"\"\":6}}')",
+      "Bash(docker build:*)"
+    ]
+  }
+}
