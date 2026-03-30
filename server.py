@@ -6,26 +6,49 @@ Or directly:  uv run uvicorn server:app --reload
 
 import asyncio
 import itertools
+import os
 import sqlite3
 import time
 from pathlib import Path
 from typing import Union
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from actor_game import DB_PATH, _has_ratings, bfs, bfs_multi, open_db, search_actors
 
-app = FastAPI(title="Actor Connection Game")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+def _client_ip(request: Request) -> str:
+    """Return the real client IP, respecting X-Forwarded-For from Cloud Run's proxy."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+limiter = Limiter(key_func=_client_ip)
+
+app = FastAPI(title="Actor Connection Game")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# CORS is only needed when the frontend dev server (port 5173) talks to the
+# API server (port 8000/8080) on a different port — i.e. local development.
+# In production both are served from the same Cloud Run origin, so CORS is a
+# no-op there. Configure via ALLOWED_ORIGINS (comma-separated).
+_origins = [o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "").split(",") if o.strip()]
+if _origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_origins,
+        allow_methods=["GET", "POST"],
+        allow_headers=["Content-Type"],
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -42,7 +65,7 @@ class Filters(BaseModel):
     min_year: int | None = None
     min_rating: float | None = None
     min_votes: int | None = None
-    max_degrees: int = 6
+    max_degrees: int = Field(6, ge=1, le=12)
 
 
 class ConnectRequest(BaseModel):
@@ -118,7 +141,8 @@ def _steps_to_leg(all_paths: list[list[dict]]) -> Leg:
 # ---------------------------------------------------------------------------
 
 @app.get("/api/search")
-async def search(q: str = Query("", min_length=0), limit: int = Query(15, le=50)):
+@limiter.limit("60/minute")
+async def search(request: Request, q: str = Query("", min_length=0), limit: int = Query(15, le=50)):
     """Return actors whose name matches the query string, sorted by popularity."""
     if not q or len(q) < 2:
         return []
@@ -167,7 +191,8 @@ async def search(q: str = Query("", min_length=0), limit: int = Query(15, le=50)
 
 
 @app.post("/api/connect", response_model=ConnectResponse)
-async def connect(req: ConnectRequest):
+@limiter.limit("10/minute")
+async def connect(request: Request, req: ConnectRequest):
     """Find the shortest actor connection path(s)."""
     if len(req.actors) < 2:
         raise HTTPException(400, "Need at least 2 actors")

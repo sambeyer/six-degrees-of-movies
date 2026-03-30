@@ -1,0 +1,11 @@
+# Copy to terraform.tfvars and fill in your values.
+# terraform.tfvars is gitignored — never commit real project IDs to source control.
+
+project_id = "your-gcp-project-id"
+region     = "us-central1"
+
+# image — leave commented out on first apply (uses placeholder).
+# Uncomment and set after pushing the Docker image to Artifact Registry:
+# image = "us-central1-docker.pkg.dev/your-gcp-project-id/actor-game/actor-game:latest"
+
+# max_instances = 3  # optional: cap Cloud Run scale-out

@@ -1,6 +1,8 @@
 # ── Stage 1: build the React frontend ────────────────────────────────────────
-FROM node:20-alpine AS frontend-builder
+# cgr.dev/chainguard/node:latest-dev includes npm and a shell for build tools
+FROM cgr.dev/chainguard/node:latest-dev AS frontend-builder
 
+USER root
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm ci
@@ -10,27 +12,39 @@ RUN npm run build
 
 
 # ── Stage 2: Python runtime ───────────────────────────────────────────────────
-FROM python:3.12-slim
+# cgr.dev/chainguard/python:latest-dev is a minimal Wolfi-based image:
+#   - Python + POSIX shell (needed for entrypoint.sh)
+#   - No SSH, no package manager, no compilers — far smaller attack surface
+#     than python:3.12-slim
+#   - Ships with nonroot user (uid 65532); we use root only for the install step
+FROM cgr.dev/chainguard/python:latest-dev
 
-# Install uv from the official distroless image (fast, no pip upgrade needed)
+# Copy uv — statically linked Rust binary, works on any glibc image
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
+# Install Python dependencies as root (writes to system Python site-packages)
+USER root
 WORKDIR /app
 
-# Copy source files before uv sync so hatchling can build the package correctly.
-# (actor_game.py must exist when the wheel is built, or the installed package is empty.)
-COPY pyproject.toml uv.lock actor_game.py server.py entrypoint.sh ./
+# Copy source before uv sync so hatchling can build the package correctly
+# (actor_game.py must exist when the wheel is built, or the package is empty)
+COPY pyproject.toml uv.lock actor_game.py server.py entrypoint.sh gcs_db.py ./
 
 ENV UV_SYSTEM_PYTHON=1
+# Keep uv cache in /tmp so it remains writable at runtime under nonroot
+ENV UV_CACHE_DIR=/tmp/uv-cache
 RUN uv sync --frozen --no-dev
 
 # Copy pre-built frontend static files from stage 1
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
-# Data directory — expected to be a mounted volume at runtime
+# Data directory — volume-mounted in local dev; /tmp/actor-game on Cloud Run
 ENV ACTOR_GAME_DATA_DIR=/data
 VOLUME ["/data"]
 
-EXPOSE 8000
+EXPOSE 8080
 
-ENTRYPOINT ["./entrypoint.sh"]
+# Drop to nonroot for runtime (uid 65532 in Chainguard images)
+USER nonroot
+
+ENTRYPOINT ["/bin/sh", "entrypoint.sh"]

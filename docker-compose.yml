@@ -2,12 +2,20 @@ services:
   app:
     build: .
     ports:
-      - "8000:8000"
+      - "8000:8080"
     volumes:
       # Mount the same directory used by the CLI tool so the container shares
       # the already-downloaded DB. Override with DATA_DIR=... if needed.
       - ${DATA_DIR:-~/.actor-game}:/data
     environment:
       - ACTOR_GAME_DATA_DIR=/data
-    # Restart automatically unless explicitly stopped
+      # CORS: allow the Vite dev server to call the API from a different port.
+      # Not needed in production (frontend and API share the same Cloud Run origin).
+      - ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+      # GCS_BUCKET: leave empty for local dev (uses the mounted volume above).
+      # Set to your bucket name when testing GCS integration locally.
+      - GCS_BUCKET=
+    # Run as root locally so the host-owned volume mount (~/.actor-game) is writable.
+    # In production (Cloud Run) the container runs as nonroot with /tmp as the data dir.
+    user: "0"
     restart: unless-stopped

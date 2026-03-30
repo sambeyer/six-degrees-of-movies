@@ -1,0 +1,28 @@
+# Copy this file to backend.tf and fill in your values before running
+# `terraform init`. The state bucket must exist before init — create it
+# manually (it is NOT managed by this Terraform config).
+#
+# ── Required SA permissions for the Terraform service account ────────────────
+# Grant these roles on the project to the SA you created manually:
+#
+#   roles/run.admin                    — create/update Cloud Run services
+#   roles/iam.serviceAccountAdmin      — create the Cloud Run runtime SA
+#   roles/iam.serviceAccountUser       — attach SA to Cloud Run service
+#   roles/storage.admin                — create the data bucket + state bucket access
+#   roles/artifactregistry.admin       — create the Docker repository
+#   roles/serviceusage.serviceUsageAdmin — enable GCP APIs
+#
+# ── Configure credentials ────────────────────────────────────────────────────
+# Option A — service account key file:
+#   export GOOGLE_APPLICATION_CREDENTIALS=/path/to/sa-key.json
+#
+# Option B — Application Default Credentials via gcloud:
+#   gcloud auth application-default login
+#   gcloud config set project YOUR_PROJECT_ID
+
+terraform {
+  backend "gcs" {
+    bucket = "YOUR-TF-STATE-BUCKET" # e.g. "my-project-tf-state"
+    prefix = "actor-game"
+  }
+}
