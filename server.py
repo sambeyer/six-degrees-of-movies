@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from actor_game import DB_PATH, _has_ratings, bfs, open_db, search_actors
+from actor_game import DB_PATH, _has_ratings, bfs, bfs_multi, open_db, search_actors
 
 app = FastAPI(title="Actor Connection Game")
 
@@ -58,10 +58,12 @@ class PathStep(BaseModel):
     movie_year: int | None
     movie_type: str | None
     movie_rating: float | None
+    movie_tconst: str | None = None
 
 
 class Leg(BaseModel):
     steps: list[PathStep]
+    all_steps: list[list[PathStep]] = []
     degrees: int
 
 
@@ -87,12 +89,13 @@ def _resolve(conn: sqlite3.Connection, ref: ActorRef) -> dict | None:
     return dict(row) if row else None
 
 
-def _run_bfs(conn, start_nconst, end_nconst, filters: Filters, forbidden: set | None = None):
-    return bfs(
+def _run_bfs_multi(conn, start_nconst, end_nconst, filters: Filters, forbidden: set | None = None) -> list[list[dict]]:
+    return bfs_multi(
         conn,
         start_nconst,
         end_nconst,
         filters.max_degrees,
+        k=5,
         min_year=filters.min_year,
         movies_only=filters.movies_only,
         min_rating=filters.min_rating,
@@ -101,10 +104,12 @@ def _run_bfs(conn, start_nconst, end_nconst, filters: Filters, forbidden: set | 
     )
 
 
-def _steps_to_leg(steps: list[dict]) -> Leg:
+def _steps_to_leg(all_paths: list[list[dict]]) -> Leg:
+    first = all_paths[0]
     return Leg(
-        steps=[PathStep(**s) for s in steps],
-        degrees=len(steps) - 1,
+        steps=[PathStep(**s) for s in first],
+        all_steps=[[PathStep(**s) for s in p] for p in all_paths],
+        degrees=len(first) - 1,
     )
 
 
@@ -202,12 +207,12 @@ async def connect(req: ConnectRequest):
                     a, b = actors_resolved[i], actors_resolved[i + 1]
                     # Forbid every combo actor except this leg's own start and end
                     forbidden = all_nconsts - {a["nconst"], b["nconst"]}
-                    steps = _run_bfs(conn, a["nconst"], b["nconst"], req.filters, forbidden=forbidden or None)
-                    if steps is None:
+                    all_paths = _run_bfs_multi(conn, a["nconst"], b["nconst"], req.filters, forbidden=forbidden or None)
+                    if not all_paths:
                         # No path found for this leg — skip this combo
                         legs = []
                         break
-                    leg = _steps_to_leg(steps)
+                    leg = _steps_to_leg(all_paths)
                     legs.append(leg)
                     total += leg.degrees
 
