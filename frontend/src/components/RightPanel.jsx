@@ -92,10 +92,12 @@ export default function RightPanel({ results, loading, error, resultVersion, onC
 
         {/* Graph view — shows all shortest paths as a node/edge diagram */}
         {paths.length > 0 && (
-          <GraphView
-            paths={paths}
-            resultVersion={resultVersion}
-          />
+          <div style={{ paddingBottom: 48 }}>
+            <GraphView
+              paths={paths}
+              resultVersion={resultVersion}
+            />
+          </div>
         )}
       </div>
     </div>

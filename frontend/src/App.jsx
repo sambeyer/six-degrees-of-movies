@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { connect } from "./api.js";
 import LeftPanel from "./components/LeftPanel.jsx";
 import RightPanel from "./components/RightPanel.jsx";
@@ -12,11 +12,80 @@ const DEFAULT_FILTERS = {
   maxDegrees: 6,
 };
 
+// ---------------------------------------------------------------------------
+// URL state serialisation
+// Actor format:  "nconst|name"
+// Waypoint format: one `w` param per waypoint; branches within separated by "+"
+//   e.g. w=nm1234|John+nm5678|Jane  (two branches in one waypoint)
+// ---------------------------------------------------------------------------
+
+function actorToParam(actor) {
+  return `${actor.nconst}|${actor.name}`;
+}
+
+function actorFromParam(s) {
+  const idx = s.indexOf("|");
+  if (idx === -1) return null;
+  return { nconst: s.slice(0, idx), name: decodeURIComponent(s.slice(idx + 1)) };
+}
+
+function stateToUrl(actorA, actorB, waypoints, filters) {
+  const p = new URLSearchParams();
+  if (actorA) p.set("a", actorToParam(actorA));
+  if (actorB) p.set("b", actorToParam(actorB));
+
+  // Only encode filters that differ from defaults
+  if (filters.moviesOnly !== DEFAULT_FILTERS.moviesOnly) p.set("mo", filters.moviesOnly ? "1" : "0");
+  if (filters.minYear !== DEFAULT_FILTERS.minYear) p.set("yr", filters.minYear);
+  if (filters.minRating !== DEFAULT_FILTERS.minRating) p.set("rt", filters.minRating);
+  if (filters.minVotes !== DEFAULT_FILTERS.minVotes) p.set("vt", filters.minVotes);
+  if (filters.maxDegrees !== DEFAULT_FILTERS.maxDegrees) p.set("dg", filters.maxDegrees);
+
+  // Waypoints: each as a `w` param, branches joined by "+"
+  for (const wp of waypoints) {
+    const filled = wp.branches.map(b => b.actor).filter(Boolean);
+    if (filled.length > 0) {
+      p.append("w", filled.map(actorToParam).join("+"));
+    }
+  }
+
+  return p.toString() ? `?${p.toString()}` : "";
+}
+
+let _wpIdCounter = 1;
+
+function urlToState() {
+  const p = new URLSearchParams(window.location.search);
+
+  const actorA = p.has("a") ? actorFromParam(p.get("a")) : null;
+  const actorB = p.has("b") ? actorFromParam(p.get("b")) : null;
+
+  const filters = {
+    moviesOnly: p.has("mo") ? p.get("mo") === "1" : DEFAULT_FILTERS.moviesOnly,
+    minYear: p.has("yr") ? Number(p.get("yr")) : DEFAULT_FILTERS.minYear,
+    minRating: p.has("rt") ? Number(p.get("rt")) : DEFAULT_FILTERS.minRating,
+    minVotes: p.has("vt") ? Number(p.get("vt")) : DEFAULT_FILTERS.minVotes,
+    maxDegrees: p.has("dg") ? Number(p.get("dg")) : DEFAULT_FILTERS.maxDegrees,
+  };
+
+  const waypoints = p.getAll("w").map((wStr) => {
+    const branches = wStr.split("+").map((s) => {
+      const actor = actorFromParam(s);
+      return { id: _wpIdCounter++, actor };
+    }).filter(b => b.actor !== null);
+    return { id: _wpIdCounter++, branches };
+  });
+
+  return { actorA, actorB, filters, waypoints };
+}
+
 export default function App() {
-  const [actorA, setActorA] = useState(null);
-  const [actorB, setActorB] = useState(null);
-  const [waypoints, setWaypoints] = useState([]);
-  const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  const initial = urlToState();
+
+  const [actorA, setActorA] = useState(initial.actorA);
+  const [actorB, setActorB] = useState(initial.actorB);
+  const [waypoints, setWaypoints] = useState(initial.waypoints);
+  const [filters, setFilters] = useState(initial.filters);
 
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -24,9 +93,10 @@ export default function App() {
   const [resultVersion, setResultVersion] = useState(0);
 
   const debounceRef = useRef(null);
+  const isPopState = useRef(false);
 
   // Build the actors array for the API request, expanding waypoint branches
-  function buildActorsPayload() {
+  const buildActorsPayload = useCallback(() => {
     const slots = [];
     slots.push({ nconst: actorA.nconst, name: actorA.name });
     for (const wp of waypoints) {
@@ -40,7 +110,37 @@ export default function App() {
     }
     slots.push({ nconst: actorB.nconst, name: actorB.name });
     return slots;
-  }
+  }, [actorA, actorB, waypoints]);
+
+  // Sync state → URL (pushState)
+  useEffect(() => {
+    if (isPopState.current) {
+      isPopState.current = false;
+      return;
+    }
+    const url = stateToUrl(actorA, actorB, waypoints, filters);
+    const current = window.location.search || "";
+    const next = url || "";
+    if (next !== current) {
+      window.history.pushState(null, "", next || window.location.pathname);
+    }
+  }, [actorA, actorB, waypoints, filters]);
+
+  // Handle browser back/forward
+  useEffect(() => {
+    const handler = () => {
+      isPopState.current = true;
+      const s = urlToState();
+      setActorA(s.actorA);
+      setActorB(s.actorB);
+      setWaypoints(s.waypoints);
+      setFilters(s.filters);
+      setResults(null);
+      setError(null);
+    };
+    window.addEventListener("popstate", handler);
+    return () => window.removeEventListener("popstate", handler);
+  }, []);
 
   // Auto-search whenever inputs or filters change
   useEffect(() => {

@@ -131,11 +131,15 @@ async def search(q: str = Query("", min_length=0), limit: int = Query(15, le=50)
 
         def _query(pattern, lim):
             if has_popularity:
+                # All actors matching name, sorted by popularity descending.
+                # MIN_VOTES is kept as a constant for easy threshold tuning but
+                # no longer applied as a WHERE filter — less-known actors still
+                # appear, just ranked below the famous ones.
                 return conn.execute(
                     "SELECT nconst, name, max_votes, known_for FROM actors"
-                    " WHERE name LIKE ? AND max_votes >= ?"
-                    " ORDER BY max_votes DESC LIMIT ?",
-                    (pattern, MIN_VOTES, lim),
+                    " WHERE name LIKE ?"
+                    " ORDER BY max_votes DESC NULLS LAST LIMIT ?",
+                    (pattern, lim),
                 ).fetchall()
             else:
                 return conn.execute(

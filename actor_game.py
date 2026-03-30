@@ -553,11 +553,27 @@ def bfs_multi(
             coactor_cache[tconst] = [r[0] for r in rows]
         return coactor_cache[tconst]
 
-    # Step 2: forward BFS — dist_fwd[nconst] = min hops from start
+    # Steps 2+3: forward and backward BFS to compute distance maps.
+    # Cap node count so popular actors don't cause exponential blowup.
+    # 2000 nodes is ample to find 5 diverse paths even for well-connected actors.
+    MAX_BFS_NODES = 2_000
+
+    # Seed forward map from the first path so those nodes are free.
     dist_fwd: dict[str, int] = {start: 0}
-    frontier: deque[str] = deque([start])
-    while frontier:
-        cur = frontier.popleft()
+    for i, step in enumerate(first):
+        dist_fwd[step["nconst"]] = i
+
+    # Seed backward map from the first path
+    dist_bwd: dict[str, int] = {end: 0}
+    for i, step in enumerate(reversed(first)):
+        dist_bwd[step["nconst"]] = i
+
+    # Continue forward BFS
+    fwd_frontier: deque[str] = deque(
+        n for n, d in dist_fwd.items() if d < min_hops
+    )
+    while fwd_frontier and len(dist_fwd) < MAX_BFS_NODES:
+        cur = fwd_frontier.popleft()
         d = dist_fwd[cur]
         if d >= min_hops:
             continue
@@ -565,13 +581,18 @@ def bfs_multi(
             for nconst in get_coactors(tconst):
                 if nconst != cur and nconst not in dist_fwd and (forbidden is None or nconst not in forbidden):
                     dist_fwd[nconst] = d + 1
-                    frontier.append(nconst)
+                    fwd_frontier.append(nconst)
+                    if len(dist_fwd) >= MAX_BFS_NODES:
+                        break
+            if len(dist_fwd) >= MAX_BFS_NODES:
+                break
 
-    # Step 3: backward BFS — dist_bwd[nconst] = min hops to end
-    dist_bwd: dict[str, int] = {end: 0}
-    frontier = deque([end])
-    while frontier:
-        cur = frontier.popleft()
+    # Continue backward BFS
+    bwd_frontier: deque[str] = deque(
+        n for n, d in dist_bwd.items() if d < min_hops
+    )
+    while bwd_frontier and len(dist_bwd) < MAX_BFS_NODES:
+        cur = bwd_frontier.popleft()
         d = dist_bwd[cur]
         if d >= min_hops:
             continue
@@ -579,11 +600,17 @@ def bfs_multi(
             for nconst in get_coactors(tconst):
                 if nconst != cur and nconst not in dist_bwd and (forbidden is None or nconst not in forbidden):
                     dist_bwd[nconst] = d + 1
-                    frontier.append(nconst)
+                    bwd_frontier.append(nconst)
+                    if len(dist_bwd) >= MAX_BFS_NODES:
+                        break
+            if len(dist_bwd) >= MAX_BFS_NODES:
+                break
 
     # Step 4: build the DAG of edges that lie on any shortest path
     # An edge actor→(movie)→co_actor is on a shortest path iff:
     #   dist_fwd[actor] + 1 + dist_bwd[co_actor] == min_hops
+    # Cap edges per actor so the DFS terminates quickly for popular actors.
+    MAX_EDGES_PER_ACTOR = k * 6
     succ: dict[str, list[tuple[str, str]]] = {}  # nconst -> [(next_nconst, via_tconst)]
     for actor, d in dist_fwd.items():
         if d >= min_hops:
@@ -603,6 +630,10 @@ def bfs_multi(
                     if edge not in seen_edges:
                         seen_edges.add(edge)
                         nexts.append(edge)
+                        if len(nexts) >= MAX_EDGES_PER_ACTOR:
+                            break
+            if len(nexts) >= MAX_EDGES_PER_ACTOR:
+                break
         if nexts:
             succ[actor] = nexts
 
