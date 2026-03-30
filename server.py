@@ -119,29 +119,18 @@ async def search(q: str = Query("", min_length=0), limit: int = Query(15, le=50)
         return []
     conn = open_db()
     try:
-        has_ratings = _has_ratings(conn)
         MIN_VOTES = 50_000
+        has_popularity = bool(conn.execute(
+            "SELECT 1 FROM pragma_table_info('actors') WHERE name='max_votes'"
+        ).fetchone())
 
         def _query(pattern, lim):
-            if has_ratings:
+            if has_popularity:
                 return conn.execute(
-                    """
-                    SELECT a.nconst, a.name, MAX(r.num_votes) AS max_votes,
-                           (SELECT m2.title
-                            FROM movies m2
-                            JOIN appearances ap2 ON m2.tconst = ap2.tconst
-                            JOIN ratings r2 ON m2.tconst = r2.tconst
-                            WHERE ap2.nconst = a.nconst AND r2.num_votes >= ?
-                            ORDER BY r2.num_votes DESC LIMIT 1) AS known_for
-                    FROM actors a
-                    JOIN appearances ap ON a.nconst = ap.nconst
-                    JOIN ratings r ON ap.tconst = r.tconst
-                    WHERE a.name LIKE ? AND r.num_votes >= ?
-                    GROUP BY a.nconst, a.name
-                    ORDER BY max_votes DESC
-                    LIMIT ?
-                    """,
-                    (MIN_VOTES, pattern, MIN_VOTES, lim),
+                    "SELECT nconst, name, max_votes, known_for FROM actors"
+                    " WHERE name LIKE ? AND max_votes >= ?"
+                    " ORDER BY max_votes DESC LIMIT ?",
+                    (pattern, MIN_VOTES, lim),
                 ).fetchall()
             else:
                 return conn.execute(

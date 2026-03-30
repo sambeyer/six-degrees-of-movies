@@ -67,8 +67,10 @@ def build_database(data_dir: Path, db_path: Path, title_types: frozenset) -> Non
         PRAGMA cache_size=-131072;
 
         CREATE TABLE IF NOT EXISTS actors (
-            nconst TEXT PRIMARY KEY,
-            name   TEXT NOT NULL
+            nconst    TEXT PRIMARY KEY,
+            name      TEXT NOT NULL,
+            max_votes INTEGER,
+            known_for TEXT
         );
         CREATE TABLE IF NOT EXISTS movies (
             tconst TEXT PRIMARY KEY,
@@ -92,11 +94,20 @@ def build_database(data_dir: Path, db_path: Path, title_types: frozenset) -> Non
     """)
     conn.commit()
 
+    # Migrate existing actors table if it's missing the new columns
+    existing_cols = {row[1] for row in cur.execute("PRAGMA table_info(actors)").fetchall()}
+    if "max_votes" not in existing_cols:
+        cur.execute("ALTER TABLE actors ADD COLUMN max_votes INTEGER")
+    if "known_for" not in existing_cols:
+        cur.execute("ALTER TABLE actors ADD COLUMN known_for TEXT")
+    conn.commit()
+
     # Check which passes have already been completed
     movies_done = cur.execute("SELECT COUNT(*) FROM movies").fetchone()[0] > 0
     appearances_done = cur.execute("SELECT COUNT(*) FROM appearances").fetchone()[0] > 0
     actors_done = cur.execute("SELECT COUNT(*) FROM actors").fetchone()[0] > 0
     ratings_done = cur.execute("SELECT COUNT(*) FROM ratings").fetchone()[0] > 0
+    popularity_done = cur.execute("SELECT COUNT(*) FROM actors WHERE max_votes IS NOT NULL").fetchone()[0] > 0
 
     # --- Pass 1: load valid movie/show IDs ---
     valid_tconsts: set[str] = set()
@@ -196,6 +207,32 @@ def build_database(data_dir: Path, db_path: Path, title_types: frozenset) -> Non
         if ratings_rows:
             cur.executemany("INSERT OR IGNORE INTO ratings VALUES (?,?,?)", ratings_rows)
         conn.commit()
+
+    # --- Pass 5: pre-compute actor popularity (max_votes + known_for) ---
+    if popularity_done:
+        click.echo("Step 5/5: actor popularity already computed, skipping.")
+    else:
+        click.echo("Step 5/5: Pre-computing actor popularity ...")
+        cur.executescript("""
+            UPDATE actors SET
+                max_votes = (
+                    SELECT MAX(r.num_votes)
+                    FROM appearances ap
+                    JOIN ratings r ON ap.tconst = r.tconst
+                    WHERE ap.nconst = actors.nconst
+                ),
+                known_for = (
+                    SELECT m.title
+                    FROM appearances ap
+                    JOIN ratings r ON ap.tconst = r.tconst
+                    JOIN movies m ON ap.tconst = m.tconst
+                    WHERE ap.nconst = actors.nconst
+                    ORDER BY r.num_votes DESC
+                    LIMIT 1
+                );
+        """)
+        conn.commit()
+        click.echo("  Done.")
 
     conn.close()
     click.echo("Database build complete.")
