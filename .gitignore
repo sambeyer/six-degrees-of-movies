@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Data (mounted at runtime, never committed)
+actor-game-data/
+*.db
+
+# IDE / tooling
+.claude/
+.DS_Store
+*.swp
+*.swo
