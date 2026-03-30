@@ -92,98 +92,113 @@ def build_database(data_dir: Path, db_path: Path, title_types: frozenset) -> Non
     """)
     conn.commit()
 
+    # Check which passes have already been completed
+    movies_done = cur.execute("SELECT COUNT(*) FROM movies").fetchone()[0] > 0
+    appearances_done = cur.execute("SELECT COUNT(*) FROM appearances").fetchone()[0] > 0
+    actors_done = cur.execute("SELECT COUNT(*) FROM actors").fetchone()[0] > 0
+    ratings_done = cur.execute("SELECT COUNT(*) FROM ratings").fetchone()[0] > 0
+
     # --- Pass 1: load valid movie/show IDs ---
-    click.echo("Step 1/3: Processing title.basics.tsv.gz ...")
     valid_tconsts: set[str] = set()
-    movie_rows: list[tuple] = []
-
-    with gzip.open(data_dir / "title.basics.tsv.gz", "rt", encoding="utf-8") as f:
-        header = f.readline()  # consume header
-        for line in tqdm(f, desc="  titles", unit=" rows", unit_scale=True):
-            parts = line.rstrip("\n").split("\t")
-            # tconst, titleType, primaryTitle, originalTitle, isAdult, startYear, ...
-            if len(parts) < 6:
-                continue
-            tconst, title_type, primary_title, _, is_adult, start_year = parts[:6]
-            if title_type in title_types and is_adult == "0":
-                valid_tconsts.add(tconst)
-                movie_rows.append((tconst, primary_title, start_year if start_year != "\\N" else None, title_type))
-
-    click.echo(f"  {len(valid_tconsts):,} valid titles loaded.")
-    cur.executemany("INSERT OR IGNORE INTO movies VALUES (?,?,?,?)", movie_rows)
-    conn.commit()
-    del movie_rows
+    if movies_done:
+        click.echo("Step 1/4: movies table already populated, loading IDs from DB ...")
+        rows = cur.execute("SELECT tconst FROM movies").fetchall()
+        valid_tconsts = {r[0] for r in rows}
+        click.echo(f"  {len(valid_tconsts):,} titles loaded from existing DB.")
+    else:
+        click.echo("Step 1/4: Processing title.basics.tsv.gz ...")
+        movie_rows: list[tuple] = []
+        with gzip.open(data_dir / "title.basics.tsv.gz", "rt", encoding="utf-8") as f:
+            f.readline()  # consume header
+            for line in tqdm(f, desc="  titles", unit=" rows", unit_scale=True):
+                parts = line.rstrip("\n").split("\t")
+                if len(parts) < 6:
+                    continue
+                tconst, title_type, primary_title, _, is_adult, start_year = parts[:6]
+                if title_type in title_types and is_adult == "0":
+                    valid_tconsts.add(tconst)
+                    movie_rows.append((tconst, primary_title, start_year if start_year != "\\N" else None, title_type))
+        click.echo(f"  {len(valid_tconsts):,} valid titles loaded.")
+        cur.executemany("INSERT OR IGNORE INTO movies VALUES (?,?,?,?)", movie_rows)
+        conn.commit()
+        del movie_rows
 
     # --- Pass 2: load actor<->movie links ---
-    click.echo("Step 2/3: Processing title.principals.tsv.gz ...")
     valid_nconsts: set[str] = set()
-    appearance_rows: list[tuple] = []
-
-    with gzip.open(data_dir / "title.principals.tsv.gz", "rt", encoding="utf-8") as f:
-        f.readline()  # header
-        for line in tqdm(f, desc="  principals", unit=" rows", unit_scale=True):
-            parts = line.rstrip("\n").split("\t")
-            # tconst, ordering, nconst, category, ...
-            if len(parts) < 4:
-                continue
-            tconst, _, nconst, category = parts[:4]
-            if tconst in valid_tconsts and category in ACTOR_CATEGORIES:
-                valid_nconsts.add(nconst)
-                appearance_rows.append((nconst, tconst))
-                if len(appearance_rows) >= BATCH_SIZE:
-                    cur.executemany("INSERT OR IGNORE INTO appearances VALUES (?,?)", appearance_rows)
-                    appearance_rows.clear()
-
-    if appearance_rows:
-        cur.executemany("INSERT OR IGNORE INTO appearances VALUES (?,?)", appearance_rows)
-    conn.commit()
-    click.echo(f"  {len(valid_nconsts):,} actors/actresses loaded.")
+    if appearances_done:
+        click.echo("Step 2/4: appearances table already populated, skipping.")
+        rows = cur.execute("SELECT DISTINCT nconst FROM appearances").fetchall()
+        valid_nconsts = {r[0] for r in rows}
+    else:
+        click.echo("Step 2/4: Processing title.principals.tsv.gz ...")
+        appearance_rows: list[tuple] = []
+        with gzip.open(data_dir / "title.principals.tsv.gz", "rt", encoding="utf-8") as f:
+            f.readline()  # header
+            for line in tqdm(f, desc="  principals", unit=" rows", unit_scale=True):
+                parts = line.rstrip("\n").split("\t")
+                if len(parts) < 4:
+                    continue
+                tconst, _, nconst, category = parts[:4]
+                if tconst in valid_tconsts and category in ACTOR_CATEGORIES:
+                    valid_nconsts.add(nconst)
+                    appearance_rows.append((nconst, tconst))
+                    if len(appearance_rows) >= BATCH_SIZE:
+                        cur.executemany("INSERT OR IGNORE INTO appearances VALUES (?,?)", appearance_rows)
+                        appearance_rows.clear()
+        if appearance_rows:
+            cur.executemany("INSERT OR IGNORE INTO appearances VALUES (?,?)", appearance_rows)
+        conn.commit()
+        click.echo(f"  {len(valid_nconsts):,} actors/actresses loaded.")
 
     # --- Pass 3: load actor names ---
-    click.echo("Step 3/3: Processing name.basics.tsv.gz ...")
-    actor_rows: list[tuple] = []
-
-    with gzip.open(data_dir / "name.basics.tsv.gz", "rt", encoding="utf-8") as f:
-        f.readline()  # header
-        for line in tqdm(f, desc="  names", unit=" rows", unit_scale=True):
-            parts = line.rstrip("\n").split("\t")
-            # nconst, primaryName, ...
-            if len(parts) < 2:
-                continue
-            nconst, primary_name = parts[0], parts[1]
-            if nconst in valid_nconsts:
-                actor_rows.append((nconst, primary_name))
-                if len(actor_rows) >= BATCH_SIZE:
-                    cur.executemany("INSERT OR IGNORE INTO actors VALUES (?,?)", actor_rows)
-                    actor_rows.clear()
-
-    if actor_rows:
-        cur.executemany("INSERT OR IGNORE INTO actors VALUES (?,?)", actor_rows)
-    conn.commit()
+    if actors_done:
+        click.echo("Step 3/4: actors table already populated, skipping.")
+    else:
+        click.echo("Step 3/4: Processing name.basics.tsv.gz ...")
+        actor_rows: list[tuple] = []
+        with gzip.open(data_dir / "name.basics.tsv.gz", "rt", encoding="utf-8") as f:
+            f.readline()  # header
+            for line in tqdm(f, desc="  names", unit=" rows", unit_scale=True):
+                parts = line.rstrip("\n").split("\t")
+                if len(parts) < 2:
+                    continue
+                nconst, primary_name = parts[0], parts[1]
+                if nconst in valid_nconsts:
+                    actor_rows.append((nconst, primary_name))
+                    if len(actor_rows) >= BATCH_SIZE:
+                        cur.executemany("INSERT OR IGNORE INTO actors VALUES (?,?)", actor_rows)
+                        actor_rows.clear()
+        if actor_rows:
+            cur.executemany("INSERT OR IGNORE INTO actors VALUES (?,?)", actor_rows)
+        conn.commit()
 
     # --- Pass 4: load ratings ---
-    click.echo("Step 4/4: Processing title.ratings.tsv.gz ...")
-    ratings_rows: list[tuple] = []
-    with gzip.open(data_dir / "title.ratings.tsv.gz", "rt", encoding="utf-8") as f:
-        f.readline()  # header
-        for line in tqdm(f, desc="  ratings", unit=" rows", unit_scale=True):
-            parts = line.rstrip("\n").split("\t")
-            if len(parts) < 3:
-                continue
-            tconst, avg_rating, num_votes = parts[0], parts[1], parts[2]
-            if tconst in valid_tconsts:
-                try:
-                    ratings_rows.append((tconst, float(avg_rating), int(num_votes)))
-                except ValueError:
+    if ratings_done:
+        click.echo("Step 4/4: ratings table already populated, skipping.")
+    else:
+        click.echo("Step 4/4: Processing title.ratings.tsv.gz ...")
+        ratings_rows: list[tuple] = []
+        with gzip.open(data_dir / "title.ratings.tsv.gz", "rt", encoding="utf-8") as f:
+            f.readline()  # header
+            for line in tqdm(f, desc="  ratings", unit=" rows", unit_scale=True):
+                parts = line.rstrip("\n").split("\t")
+                if len(parts) < 3:
                     continue
-                if len(ratings_rows) >= BATCH_SIZE:
-                    cur.executemany("INSERT OR IGNORE INTO ratings VALUES (?,?,?)", ratings_rows)
-                    ratings_rows.clear()
-    if ratings_rows:
-        cur.executemany("INSERT OR IGNORE INTO ratings VALUES (?,?,?)", ratings_rows)
-    conn.commit()
+                tconst, avg_rating, num_votes = parts[0], parts[1], parts[2]
+                if tconst in valid_tconsts:
+                    try:
+                        ratings_rows.append((tconst, float(avg_rating), int(num_votes)))
+                    except ValueError:
+                        continue
+                    if len(ratings_rows) >= BATCH_SIZE:
+                        cur.executemany("INSERT OR IGNORE INTO ratings VALUES (?,?,?)", ratings_rows)
+                        ratings_rows.clear()
+        if ratings_rows:
+            cur.executemany("INSERT OR IGNORE INTO ratings VALUES (?,?,?)", ratings_rows)
+        conn.commit()
+
     conn.close()
-    click.echo("Database built successfully.")
+    click.echo("Database build complete.")
 
 
 # ---------------------------------------------------------------------------
@@ -557,25 +572,8 @@ def setup(force: bool, movies_only: bool) -> None:
             click.echo(f"Downloading {filename} ...")
             _download(url, dest)
 
-    if DB_PATH.exists() and not force:
-        click.echo(f"\nDatabase already exists at {DB_PATH}.")
-        conn = sqlite3.connect(DB_PATH)
-        # Ensure the name index exists for fast autocomplete (harmless if already present)
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_actors_name ON actors(name)")
-        conn.commit()
-        has_ratings = conn.execute(
-            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='ratings'"
-        ).fetchone()
-        conn.close()
-        if not has_ratings:
-            click.echo(
-                "  Note: ratings table not found. Run with --force to rebuild "
-                "and enable rating/vote filters."
-            )
-        click.echo("Use --force to rebuild it.")
-        return
-
-    if DB_PATH.exists():
+    if DB_PATH.exists() and force:
+        click.echo("\nForce-rebuilding database from scratch ...")
         DB_PATH.unlink()
 
     title_types = MOVIE_ONLY_TYPES if movies_only else ALL_TITLE_TYPES
