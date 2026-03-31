@@ -20,7 +20,9 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from actor_game import DB_PATH, _has_ratings, bfs, bfs_multi, open_db, search_actors
+from bfs import bfs, bfs_multi
+from db import DB_PATH, _has_ratings, open_db
+from search import search_actors
 
 
 def _client_ip(request: Request) -> str:
@@ -314,6 +316,6 @@ async def info():
 # Static frontend (production build)
 # ---------------------------------------------------------------------------
 
-_dist = Path(__file__).parent / "frontend" / "dist"
+_dist = Path(__file__).parent.parent / "frontend" / "dist"
 if _dist.exists():
     app.mount("/", StaticFiles(directory=str(_dist), html=True), name="static")

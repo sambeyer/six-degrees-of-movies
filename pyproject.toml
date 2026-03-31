@@ -18,7 +18,24 @@ dependencies = [
 actor-game = "actor_game:cli"
 
 [tool.hatch.build.targets.wheel]
-packages = ["actor_game.py"]
+packages = [
+    "src/actor_game.py",
+    "src/bfs.py",
+    "src/db.py",
+    "src/gcs_db.py",
+    "src/search.py",
+    "src/server.py",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.27",
+    "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/unit"]
+pythonpath = ["src", "."]   # src/ for app modules, . for entrypoint.py
 
 [build-system]
 requires = ["hatchling"]

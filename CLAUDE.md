@@ -97,19 +97,13 @@ Sensitive files are gitignored: `terraform/backend.tf`, `terraform/terraform.tfv
 ### Build and deploy
 
 ```bash
-# Authenticate (once)
-gcloud auth configure-docker australia-southeast2-docker.pkg.dev
-
-# Build for linux/amd64 — required; Cloud Run is amd64, dev machine is arm64
-docker build --platform linux/amd64 \
-  -t australia-southeast2-docker.pkg.dev/six-degrees-imdb/actor-game/actor-game:latest .
-
-docker push australia-southeast2-docker.pkg.dev/six-degrees-imdb/actor-game/actor-game:latest
-
-# Deploy
-cd terraform && terraform apply \
-  -var="image=australia-southeast2-docker.pkg.dev/six-degrees-imdb/actor-game/actor-game:latest"
+# Deploy — builds and pushes the image automatically, then applies
+cd terraform && terraform apply
 ```
+
+The `terraform plan` / `terraform apply` steps automatically build and push the image
+via `terraform/scripts/build_and_push.sh`. In CI (any `GITHUB_*` env var present)
+the build is skipped — CI must build and push the image before running Terraform.
 
 ### Seeding the database
 

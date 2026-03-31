@@ -9,22 +9,30 @@ variable "region" {
   default     = "australia-southeast2"
 }
 
-variable "image" {
-  description = <<-EOT
-    Full Docker image URI to deploy, e.g.:
-      us-central1-docker.pkg.dev/PROJECT/actor-game/actor-game:latest
-
-    On first apply (before the image has been built and pushed), leave this
-    as the default placeholder — it creates a functioning Cloud Run service
-    that serves a Hello World page. Re-apply with the real image URI once
-    you've pushed the image to Artifact Registry.
-  EOT
-  type        = string
-  default     = "us-docker.pkg.dev/cloudrun/container/hello"
-}
-
 variable "max_instances" {
   description = "Maximum number of Cloud Run instances (controls cost ceiling)"
   type        = number
   default     = 3
+}
+
+variable "domain" {
+  description = "Custom domain to serve (e.g. sixdegreesofmovies.com)"
+  type        = string
+  default     = "sixdegreesofmovies.com"
+}
+
+variable "cloudflare_api_token" {
+  description = "Cloudflare API token with Workers Scripts:Edit, Workers Routes:Edit, DNS:Edit permissions"
+  type        = string
+  sensitive   = true
+}
+
+variable "cloudflare_account_id" {
+  description = "Cloudflare account ID (found in the Cloudflare dashboard sidebar)"
+  type        = string
+}
+
+variable "cloudflare_zone_id" {
+  description = "Cloudflare zone ID for the domain (found in the domain's Overview page)"
+  type        = string
 }

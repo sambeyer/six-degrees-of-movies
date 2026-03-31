@@ -2,10 +2,14 @@
 # terraform.tfvars is gitignored — never commit real project IDs to source control.
 
 project_id = "your-gcp-project-id"
-region     = "us-central1"
-
-# image — leave commented out on first apply (uses placeholder).
-# Uncomment and set after pushing the Docker image to Artifact Registry:
-# image = "us-central1-docker.pkg.dev/your-gcp-project-id/actor-game/actor-game:latest"
+region     = "australia-southeast2"
 
 # max_instances = 3  # optional: cap Cloud Run scale-out
+
+# Cloudflare — find these in the Cloudflare dashboard:
+#   account_id and zone_id: domain Overview page (right sidebar)
+#   api_token: My Profile → API Tokens → Create Token
+#     Required permissions: Zone:DNS:Edit, Zone:Workers Routes:Edit, Account:Workers Scripts:Edit
+cloudflare_api_token  = "your-cloudflare-api-token"
+cloudflare_account_id = "your-cloudflare-account-id"
+cloudflare_zone_id    = "your-cloudflare-zone-id"
