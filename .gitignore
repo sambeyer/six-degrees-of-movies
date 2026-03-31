@@ -17,11 +17,11 @@ actor-game-data/
 
 # Terraform — local state and secrets (never commit)
 terraform/.terraform/
-terraform/.terraform.lock.hcl
 terraform/terraform.tfvars
 terraform/backend.tf
 terraform/terraform.tfstate
 terraform/terraform.tfstate.backup
+# .terraform.lock.hcl is intentionally committed (pins provider versions)
 
 # IDE / tooling
 .claude/
