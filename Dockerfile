@@ -1,6 +1,8 @@
+# Target linux/amd64 explicitly — Cloud Run only runs amd64 and building on
+# Apple Silicon without this flag produces an arm64 image that crashes on startup.
 # ── Stage 1: build the React frontend ────────────────────────────────────────
 # cgr.dev/chainguard/node:latest-dev includes npm and a shell for build tools
-FROM cgr.dev/chainguard/node:latest-dev AS frontend-builder
+FROM --platform=linux/amd64 cgr.dev/chainguard/node:latest-dev AS frontend-builder
 
 USER root
 WORKDIR /app/frontend
@@ -17,7 +19,7 @@ RUN npm run build
 #   - No SSH, no package manager, no compilers — far smaller attack surface
 #     than python:3.12-slim
 #   - Ships with nonroot user (uid 65532); we use root only for the install step
-FROM cgr.dev/chainguard/python:latest-dev
+FROM --platform=linux/amd64 cgr.dev/chainguard/python:latest-dev
 
 # Copy uv — statically linked Rust binary, works on any glibc image
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
@@ -31,9 +33,12 @@ WORKDIR /app
 COPY pyproject.toml uv.lock actor_game.py server.py entrypoint.sh gcs_db.py ./
 
 ENV UV_SYSTEM_PYTHON=1
-# Keep uv cache in /tmp so it remains writable at runtime under nonroot
-ENV UV_CACHE_DIR=/tmp/uv-cache
+ENV UV_NO_CACHE=1
 RUN uv sync --frozen --no-dev
+
+# Make the venv readable and executable by all users so the nonroot runtime
+# user can invoke the installed scripts and packages directly.
+RUN chmod -R a+rX /app/.venv
 
 # Copy pre-built frontend static files from stage 1
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
