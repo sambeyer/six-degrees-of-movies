@@ -122,9 +122,9 @@ function layoutVertical(nodeMap, svgW, svgH) {
       : V_LAYER_PAD + (l * (svgH - 2 * V_LAYER_PAD)) / (numLayers - 1);
     const nodes = byLayer.get(l) || [];
     const count = nodes.length;
-    const totalW = Math.max(count * V_MIN_SPACING, svgW - 2 * H_LAYER_PAD);
+    const totalW = svgW - 2 * H_LAYER_PAD;
     const spacing = count <= 1 ? 0 : totalW / (count - 1);
-    const startX = count === 1 ? svgW / 2 : (svgW - totalW) / 2 + H_LAYER_PAD;
+    const startX = count === 1 ? svgW / 2 : H_LAYER_PAD;
     nodes.forEach((node, i) => {
       positions.set(node.id, { x: count === 1 ? startX : startX + i * spacing, y });
     });
@@ -133,7 +133,7 @@ function layoutVertical(nodeMap, svgW, svgH) {
 }
 
 function ActorNode({ node, pos, resultVersion, isShared, vertical }) {
-  const color = node.isEndpoint ? "var(--accent)" : isShared ? "#c8c8a9" : "var(--text-muted)";
+  const color = node.isEndpoint ? "var(--accent)" : isShared ? "var(--text-muted)" : "var(--text-dim)";
   const glow = node.isEndpoint ? "0 0 14px rgba(200,169,110,0.5)" : "none";
   // On vertical layout, label goes below; on horizontal, same (already below circle)
   return (
@@ -186,7 +186,7 @@ function MovieNode({ node, pos }) {
       {node.sublabel && (
         <text
           textAnchor="middle" dy="0.9em"
-          style={{ fontSize: 8, fontFamily: "'DM Mono', monospace", fill: "var(--text-faint)", pointerEvents: "none" }}
+          style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", fill: "var(--text-dim)", pointerEvents: "none" }}
         >
           {node.sublabel}
         </text>
@@ -251,12 +251,10 @@ export default function GraphView({ paths, resultVersion }) {
 
     let svgW, svgH;
     if (vertical) {
-      // In vertical mode, width is the container width;
-      // height is driven by the number of layers.
+      // In vertical mode, width is exactly the container width — never exceed it.
+      // Height is driven by the number of layers.
       svgW = containerW;
       svgH = V_LAYER_PAD * 2 + (numLayers - 1) * V_LAYER_SPACING;
-      // If nodes are spread horizontally, ensure enough width
-      svgW = Math.max(svgW, maxPerLayer * V_MIN_SPACING + 2 * H_LAYER_PAD);
     } else {
       // Horizontal mode: width is container width, height driven by nodes per layer.
       svgW = containerW;
@@ -283,11 +281,12 @@ export default function GraphView({ paths, resultVersion }) {
       <div style={{
         fontSize: 10, fontFamily: "'DM Mono', monospace",
         textTransform: "uppercase", letterSpacing: "0.12em",
-        color: "var(--text-faint)", marginBottom: 12,
+        color: "var(--text-dim)", marginBottom: 12,
       }}>
         Connection graph
       </div>
       <svg
+        aria-hidden="true"
         viewBox={`0 0 ${svgW} ${svgH}`}
         width={svgW}
         height={svgH}

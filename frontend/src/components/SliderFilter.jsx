@@ -20,6 +20,8 @@ export default function SliderFilter({ label, value, onChange, min, max, step = 
     setEditing(false);
   }
 
+  const formatted = format ? format(value) : value;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
@@ -38,6 +40,7 @@ export default function SliderFilter({ label, value, onChange, min, max, step = 
             min={min}
             max={max}
             step={step}
+            aria-label={`${label} value`}
             onChange={(e) => setDraft(e.target.value)}
             onBlur={commitEdit}
             onKeyDown={(e) => {
@@ -48,22 +51,24 @@ export default function SliderFilter({ label, value, onChange, min, max, step = 
               width: 90, fontSize: 13, fontFamily: "'DM Mono', monospace",
               background: "var(--surface2)", border: "1px solid var(--accent)",
               borderRadius: 3, color: "var(--text)", padding: "1px 6px",
-              textAlign: "right", outline: "none",
+              textAlign: "right",
             }}
           />
         ) : (
-          <span
+          <button
             onClick={startEdit}
             title="Click to type a value"
+            aria-label={`${label}: ${formatted}. Click to edit.`}
             style={{
               fontSize: 13, fontFamily: "'DM Mono', monospace",
               color: "var(--text)", cursor: "text",
+              background: "transparent", border: "none", padding: 0,
               textDecoration: "underline dotted var(--border2)",
               textUnderlineOffset: 3,
             }}
           >
-            {format ? format(value) : value}
-          </span>
+            {formatted}
+          </button>
         )}
       </div>
       <input
@@ -72,6 +77,8 @@ export default function SliderFilter({ label, value, onChange, min, max, step = 
         max={max}
         step={step}
         value={value}
+        aria-label={label}
+        aria-valuetext={formatted}
         onChange={(e) => onChange(Number(e.target.value))}
       />
     </div>

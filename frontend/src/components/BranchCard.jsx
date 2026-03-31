@@ -35,20 +35,29 @@ export default function BranchCard({ path, resultVersion, label }) {
         </div>
       )}
 
-      <div style={{ display: "flex", flexDirection: "column" }}>
+      <ol style={{ display: "flex", flexDirection: "column", listStyle: "none", padding: 0, margin: 0 }}>
         {steps.map((step, i) => {
           const isEndpoint = i === 0 || i === steps.length - 1;
           // The film connecting THIS actor to the NEXT one
           const nextStep = i < steps.length - 1 ? steps[i + 1] : null;
+          const movieMeta = nextStep && [
+            nextStep.movie_year,
+            nextStep.movie_type === "movie" ? "film" : nextStep.movie_type === "tvSeries" ? "TV series" : nextStep.movie_type || null,
+            nextStep.movie_rating ? `rated ${nextStep.movie_rating.toFixed(1)}` : null,
+          ].filter(Boolean).join(", ");
+
           return (
-            <div key={i}>
+            <li key={i}>
               {/* Actor node */}
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{
-                  width: 10, height: 10, borderRadius: "50%", flexShrink: 0,
-                  backgroundColor: isEndpoint ? "var(--accent)" : "var(--text-faint)",
-                  boxShadow: isEndpoint ? "0 0 10px rgba(200,169,110,0.35)" : "none",
-                }} />
+                <div
+                  aria-hidden="true"
+                  style={{
+                    width: 10, height: 10, borderRadius: "50%", flexShrink: 0,
+                    backgroundColor: isEndpoint ? "var(--accent)" : "var(--text-faint)",
+                    boxShadow: isEndpoint ? "0 0 10px rgba(200,169,110,0.35)" : "none",
+                  }}
+                />
                 <span
                   className="actor-node"
                   key={`${step.nconst}-${resultVersion}`}
@@ -67,7 +76,7 @@ export default function BranchCard({ path, resultVersion, label }) {
               {/* Connector + movie pill — shown below THIS actor, connecting to the NEXT */}
               {nextStep?.movie && (
                 <div style={{ display: "flex", alignItems: "stretch", gap: 12, minHeight: 44 }}>
-                  <div style={{ width: 10, display: "flex", justifyContent: "center", flexShrink: 0 }}>
+                  <div aria-hidden="true" style={{ width: 10, display: "flex", justifyContent: "center", flexShrink: 0 }}>
                     <div style={{ width: 1, background: "var(--border)", height: "100%" }} />
                   </div>
                   <div style={{ padding: "6px 0", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -78,8 +87,11 @@ export default function BranchCard({ path, resultVersion, label }) {
                     }}>
                       {nextStep.movie}
                     </span>
-                    {(nextStep.movie_year || nextStep.movie_type || nextStep.movie_rating) && (
-                      <span style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "var(--text-faint)" }}>
+                    {movieMeta && (
+                      <span
+                        aria-label={movieMeta}
+                        style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "var(--text-dim)" }}
+                      >
                         {[
                           nextStep.movie_year,
                           nextStep.movie_type === "movie" ? "🎬" : nextStep.movie_type === "tvSeries" ? "📺" : nextStep.movie_type ? "📺" : null,
@@ -90,21 +102,21 @@ export default function BranchCard({ path, resultVersion, label }) {
                   </div>
                 </div>
               )}
-            </div>
+            </li>
           );
         })}
-      </div>
+      </ol>
 
       <div style={{
         marginTop: 14, paddingTop: 12,
         borderTop: "1px solid var(--border)",
         display: "flex", justifyContent: "space-between", alignItems: "center",
       }}>
-        <span style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+        <span style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
           {totalDegrees} degree{totalDegrees !== 1 ? "s" : ""}
         </span>
         {path.legs.length > 1 && (
-          <span style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "var(--text-ghost)" }}>
+          <span style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "var(--text-dim)" }}>
             {path.legs.length} legs
           </span>
         )}

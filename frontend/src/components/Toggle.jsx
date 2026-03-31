@@ -1,8 +1,19 @@
 export default function Toggle({ label, checked, onChange }) {
+  const handleKeyDown = (e) => {
+    if (e.key === " " || e.key === "Enter") {
+      e.preventDefault();
+      onChange(!checked);
+    }
+  };
+
   return (
     <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" }}>
       <div
+        role="switch"
+        aria-checked={checked}
+        tabIndex={0}
         onClick={() => onChange(!checked)}
+        onKeyDown={handleKeyDown}
         style={{
           width: 36, height: 20, borderRadius: 10,
           backgroundColor: checked ? "var(--accent)" : "var(--surface2)",

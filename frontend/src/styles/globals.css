@@ -6,10 +6,10 @@
   --border2: #2a2a22;
   --accent: #c8a96e;
   --text: #f0eed8;
-  --text-muted: #9a9a80;
-  --text-dim: #7a7a64;
-  --text-faint: #5a5a48;
-  --text-ghost: #474738;
+  --text-muted: #aeae94;  /* was #9a9a80 — lifted for contrast margin (~6.5:1) */
+  --text-dim: #909078;    /* was #7a7a64 — ~4.64:1 vs bg, passes AA for small text */
+  --text-faint: #6e6e5a;  /* was #5a5a48 — ~3.2:1, decorative/graphical elements only */
+  --text-ghost: #585848;  /* was #474738 — non-text decorative only (connector lines etc.) */
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -21,11 +21,27 @@ html, body, #root {
   font-family: 'Newsreader', serif;
 }
 
-input::placeholder { color: var(--text-ghost); }
+/* Placeholder text: use --text-dim so it meets 4.5:1 (placeholder is often the only label) */
+input::placeholder { color: var(--text-dim); }
 
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ── Focus indicators ────────────────────────────────────────────────────── */
+/* Visible ring for keyboard navigation, suppressed for mouse/touch */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* Inputs get a tighter offset so the outline sits just outside the border */
+input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+  border-radius: 6px;
+}
 
 /* Range slider */
 input[type="range"] {
@@ -33,10 +49,16 @@ input[type="range"] {
   appearance: none;
   width: 100%;
   height: 2px;
-  background: var(--border);
+  /* #787860: ~3.4:1 vs --bg — meets 3:1 required for UI components */
+  background: #787860;
   border-radius: 1px;
   cursor: pointer;
   accent-color: var(--accent);
+}
+input[type="range"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 2px;
 }
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;

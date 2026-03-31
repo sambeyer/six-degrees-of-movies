@@ -6,7 +6,7 @@ import Toggle from "./Toggle.jsx";
 // Small connector line between inputs
 function Connector() {
   return (
-    <div style={{ position: "absolute", left: 13, top: -10, width: 1, height: 10, backgroundColor: "var(--border)" }} />
+    <div aria-hidden="true" style={{ position: "absolute", left: 13, top: -10, width: 1, height: 10, backgroundColor: "var(--border)" }} />
   );
 }
 
@@ -81,7 +81,10 @@ export default function LeftPanel({
     >
       {/* Actor chain */}
       <div>
-        <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--text-faint)", marginBottom: 14 }}>
+        <div
+          aria-hidden="true"
+          style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--text-dim)", marginBottom: 14 }}
+        >
           Connect
         </div>
 
@@ -114,7 +117,7 @@ export default function LeftPanel({
               {/* Extra branches */}
               {wp.branches.slice(1).map((branch) => (
                 <div key={branch.id} style={{ marginTop: 6, marginLeft: 36, display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "var(--accent)", width: 20, textAlign: "center", flexShrink: 0 }}>
+                  <span aria-hidden="true" style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "var(--accent)", width: 20, textAlign: "center", flexShrink: 0 }}>
                     or
                   </span>
                   <ActorInput
@@ -137,9 +140,10 @@ export default function LeftPanel({
               {/* Add branch */}
               <button
                 onClick={() => addBranch(wp.id)}
-                style={{ marginTop: 4, marginLeft: 36, background: "transparent", border: "none", color: "var(--text-faint)", fontSize: 11, fontFamily: "'DM Mono', monospace", cursor: "pointer", padding: "2px 0", transition: "color 0.15s" }}
+                aria-label={`Add alternative actor for waypoint ${wi + 1}`}
+                style={{ marginTop: 4, marginLeft: 36, background: "transparent", border: "none", color: "var(--text-dim)", fontSize: 11, fontFamily: "'DM Mono', monospace", cursor: "pointer", padding: "2px 0", transition: "color 0.15s" }}
                 onMouseEnter={(e) => e.currentTarget.style.color = "var(--accent)"}
-                onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-faint)"}
+                onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-dim)"}
               >
                 + add alternative
               </button>
@@ -162,33 +166,39 @@ export default function LeftPanel({
         {/* Add waypoint */}
         <button
           onClick={addWaypoint}
+          aria-label="Insert a waypoint actor between A and B"
           style={{
             width: "100%", marginTop: 10,
             padding: "8px 0", background: "transparent",
             border: "1px dashed var(--border)", borderRadius: 6,
-            color: "var(--text-faint)", fontSize: 12,
+            color: "var(--text-dim)", fontSize: 12,
             fontFamily: "'DM Mono', monospace", cursor: "pointer",
             transition: "all 0.15s",
           }}
           onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.color = "var(--accent)"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-faint)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-dim)"; }}
         >
           + insert waypoint
         </button>
       </div>
 
-      <div style={{ height: 1, background: "var(--border2)" }} />
+      <div aria-hidden="true" style={{ height: 1, background: "var(--border2)" }} />
 
       {/* Filters — collapsible on mobile */}
       <div>
         {/* Header row: label + mobile toggle */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: filtersOpen ? 14 : 0 }}>
-          <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--text-faint)" }}>
+          <div
+            id="filters-label"
+            style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--text-dim)" }}
+          >
             Filters
           </div>
           <button
             className="filters-toggle"
             onClick={() => setFiltersOpen(o => !o)}
+            aria-expanded={filtersOpen}
+            aria-controls="filters-panel"
             style={{
               background: "transparent", border: "1px solid var(--border)",
               borderRadius: 4, color: "var(--text-dim)", fontSize: 10,
@@ -201,7 +211,7 @@ export default function LeftPanel({
         </div>
 
         {filtersOpen && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          <div id="filters-panel" aria-labelledby="filters-label" style={{ display: "flex", flexDirection: "column", gap: 18 }}>
             <Toggle
               label="Movies only (no TV)"
               checked={filters.moviesOnly}
@@ -233,8 +243,8 @@ export default function LeftPanel({
       </div>
 
       {/* Filter summary */}
-      {filtersOpen && <div style={{ height: 1, background: "var(--border2)", marginTop: -14 }} />}
-      <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "var(--text-ghost)", lineHeight: 1.7, marginTop: -14 }}>
+      {filtersOpen && <div aria-hidden="true" style={{ height: 1, background: "var(--border2)", marginTop: -14 }} />}
+      <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "var(--text-dim)", lineHeight: 1.7, marginTop: -14 }}>
         {filterSummary}
         {loading && <span style={{ color: "var(--accent)", marginLeft: 6 }}>· searching…</span>}
       </div>

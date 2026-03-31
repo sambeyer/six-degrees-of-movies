@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useId } from "react";
 import { searchActors } from "../api.js";
 
 export default function ActorInput({
@@ -18,6 +18,7 @@ export default function ActorInput({
   const [highlighted, setHighlighted] = useState(0);
   const debounceRef = useRef(null);
   const containerRef = useRef(null);
+  const listboxId = useId();
 
   // Sync display text when value prop changes (e.g. cleared from parent)
   useEffect(() => {
@@ -57,6 +58,15 @@ export default function ActorInput({
     else if (e.key === "Escape") { setOpen(false); }
   };
 
+  const handleFocus = (e) => {
+    e.target.style.borderColor = "var(--accent)";
+    if (suggestions.length > 0) setOpen(true);
+  };
+
+  const handleBlur = (e) => {
+    e.target.style.borderColor = "var(--border)";
+  };
+
   // Close dropdown on outside click
   useEffect(() => {
     const handler = (e) => {
@@ -68,15 +78,18 @@ export default function ActorInput({
 
   return (
     <div ref={containerRef} style={{ display: "flex", alignItems: "center", gap: 8, position: "relative", ...style }}>
-      {/* Label circle */}
+      {/* Label circle — aria-hidden, the input's placeholder serves as its accessible label */}
       {label !== undefined && (
-        <div style={{
-          width: 28, height: 28, borderRadius: "50%",
-          border: "1px solid var(--border)", display: "flex",
-          alignItems: "center", justifyContent: "center",
-          fontSize: 11, fontFamily: "'DM Mono', monospace",
-          color: "var(--text-dim)", flexShrink: 0,
-        }}>
+        <div
+          aria-hidden="true"
+          style={{
+            width: 28, height: 28, borderRadius: "50%",
+            border: "1px solid var(--border)", display: "flex",
+            alignItems: "center", justifyContent: "center",
+            fontSize: 11, fontFamily: "'DM Mono', monospace",
+            color: "var(--text-dim)", flexShrink: 0,
+          }}
+        >
           {label}
         </div>
       )}
@@ -84,10 +97,16 @@ export default function ActorInput({
       {/* Input */}
       <input
         type="text"
+        role="combobox"
+        aria-expanded={open}
+        aria-autocomplete="list"
+        aria-controls={open ? listboxId : undefined}
+        aria-activedescendant={open && suggestions[highlighted] ? `${listboxId}-${highlighted}` : undefined}
         value={text}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
-        onFocus={() => suggestions.length > 0 && setOpen(true)}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
         placeholder={placeholder}
         autoComplete="off"
         style={{
@@ -99,18 +118,16 @@ export default function ActorInput({
           color: "var(--text)",
           fontSize: 14,
           fontFamily: "'Newsreader', serif",
-          outline: "none",
           transition: "border-color 0.15s",
           ...inputStyle,
         }}
-        onFocus={(e) => { e.target.style.borderColor = "var(--accent)"; suggestions.length > 0 && setOpen(true); }}
-        onBlur={(e) => { e.target.style.borderColor = "var(--border)"; }}
       />
 
       {/* Remove button */}
       {showRemove && (
         <button
           onClick={onRemove}
+          aria-label="Remove actor"
           style={{
             width: 28, height: 28, borderRadius: "50%",
             border: "1px solid var(--border)", background: "transparent",
@@ -127,22 +144,32 @@ export default function ActorInput({
 
       {/* Dropdown */}
       {open && suggestions.length > 0 && (
-        <div style={{
-          position: "absolute",
-          top: "100%",
-          left: label !== undefined ? 36 : 0,
-          right: showRemove ? 36 : 0,
-          zIndex: 100,
-          background: "var(--surface)",
-          border: "1px solid var(--border)",
-          borderRadius: 6,
-          marginTop: 4,
-          overflow: "hidden",
-          boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
-        }}>
+        <ul
+          id={listboxId}
+          role="listbox"
+          aria-label="Actor suggestions"
+          style={{
+            position: "absolute",
+            top: "100%",
+            left: label !== undefined ? 36 : 0,
+            right: showRemove ? 36 : 0,
+            zIndex: 100,
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            borderRadius: 6,
+            marginTop: 4,
+            overflow: "hidden",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+            listStyle: "none",
+            padding: 0,
+          }}
+        >
           {suggestions.map((s, i) => (
-            <div
+            <li
               key={s.nconst}
+              id={`${listboxId}-${i}`}
+              role="option"
+              aria-selected={i === highlighted}
               onMouseDown={() => confirm(s)}
               onMouseEnter={() => setHighlighted(i)}
               style={{
@@ -158,16 +185,16 @@ export default function ActorInput({
               <div>{s.name}</div>
               {s.known_for && (
                 <div style={{
-                  fontSize: 10, fontFamily: "'DM Mono', monospace",
-                  color: i === highlighted ? "var(--text-dim)" : "var(--text-faint)",
+                  fontSize: 11, fontFamily: "'DM Mono', monospace",
+                  color: i === highlighted ? "var(--text-dim)" : "var(--text-dim)",
                   marginTop: 2,
                 }}>
                   {s.known_for}
                 </div>
               )}
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </div>
   );
