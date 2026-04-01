@@ -5,6 +5,7 @@ project_id = "your-gcp-project-id"
 region     = "australia-southeast2"
 
 # max_instances = 3  # optional: cap Cloud Run scale-out
+# terraform_sa_email = "terraform@your-project.iam.gserviceaccount.com"  # override if not using default
 
 # Cloudflare — find these in the Cloudflare dashboard:
 #   account_id and zone_id: domain Overview page (right sidebar)

@@ -70,6 +70,13 @@ resource "google_service_account" "run" {
   display_name = "Actor Game — Cloud Run runtime SA"
 }
 
+# Allow the Terraform SA to attach the Cloud Run SA to Cloud Run services
+resource "google_service_account_iam_member" "terraform_uses_run_sa" {
+  service_account_id = google_service_account.run.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${var.terraform_sa_email}"
+}
+
 # Grant the Cloud Run SA read/write access to the data bucket
 # (write is needed for the first-time setup path that uploads the built DB)
 resource "google_storage_bucket_iam_member" "run_data" {
@@ -83,6 +90,7 @@ resource "google_storage_bucket_iam_member" "run_data" {
 resource "google_cloud_run_v2_service" "app" {
   name     = "actor-game"
   location = var.region
+  depends_on = [google_service_account_iam_member.terraform_uses_run_sa]
 
   template {
     service_account = google_service_account.run.email

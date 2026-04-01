@@ -21,6 +21,12 @@ variable "domain" {
   default     = "sixdegreesofmovies.com"
 }
 
+variable "terraform_sa_email" {
+  description = "Email of the Terraform service account (needs iam.serviceAccountUser on the Cloud Run SA)"
+  type        = string
+  default     = "terraform@six-degrees-imdb.iam.gserviceaccount.com"
+}
+
 variable "cloudflare_api_token" {
   description = "Cloudflare API token with Workers Scripts:Edit, Workers Routes:Edit, DNS:Edit permissions"
   type        = string
