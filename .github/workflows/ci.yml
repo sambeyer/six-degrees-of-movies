@@ -113,14 +113,18 @@ jobs:
 
       - name: Generate backend config
         run: |
-          cat > terraform/backend.tfvars <<EOF
-          bucket = "${{ vars.TF_STATE_BUCKET }}"
-          prefix = "actor-game"
+          cat > terraform/backend.tf <<EOF
+          terraform {
+            backend "gcs" {
+              bucket = "${{ vars.TF_STATE_BUCKET }}"
+              prefix = "actor-game"
+            }
+          }
           EOF
 
       - name: Terraform init
         working-directory: terraform
-        run: terraform init -backend-config=backend.tfvars
+        run: terraform init
         env:
           GOOGLE_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
 
