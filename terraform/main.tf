@@ -39,7 +39,8 @@ resource "google_project_service" "apis" {
 # ── Docker image — build locally, skip in CI ─────────────────────────────────
 # Runs build_and_push.sh during `terraform plan`. On a developer laptop it
 # builds and pushes the image; in CI (any GITHUB_* env var present) it skips
-# the build and returns the pre-pushed image URI.
+# the build and returns the pre-pushed image URI (passed via IMAGE_DIGEST env).
+# The image is always referenced by digest, never by tag.
 
 data "external" "docker_image" {
   program = ["${path.module}/scripts/build_and_push.sh"]
@@ -47,7 +48,6 @@ data "external" "docker_image" {
   query = {
     project_id = var.project_id
     region     = var.region
-    tag        = "latest"
   }
 }
 
@@ -58,6 +58,10 @@ resource "google_artifact_registry_repository" "images" {
   repository_id = "actor-game"
   format        = "DOCKER"
   description   = "Docker images for Actor Connection Game"
+
+  docker_config {
+    immutable_tags = true
+  }
 
   depends_on = [google_project_service.apis]
 }
