@@ -2,6 +2,9 @@ name: CI/CD
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 env:
   REGISTRY: australia-southeast2-docker.pkg.dev
