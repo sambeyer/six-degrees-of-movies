@@ -67,6 +67,12 @@ jobs:
         run: |
           echo "Waiting for /api/info to respond (up to 10 min for DB download)..."
           for i in $(seq 1 60); do
+            status=$(docker inspect --format='{{.State.Status}}' actor-game-test 2>/dev/null || echo "missing")
+            if [[ "$status" != "running" ]]; then
+              echo "Container exited unexpectedly (status: $status)."
+              docker logs actor-game-test
+              exit 1
+            fi
             if curl -sf http://localhost:8000/api/info > /dev/null; then
               echo "Server is healthy."
               exit 0
