@@ -19,12 +19,34 @@ const MOVIE_H = 28;
 // Horizontal layout constants
 const H_LAYER_PAD = 48;   // left/right padding
 const H_NODE_PAD = 20;    // top/bottom padding per layer column
-const H_MIN_SPACING = 68; // min vertical gap between nodes in same column
+const H_MIN_SPACING = 82; // min vertical gap between nodes in same column
 
 // Vertical layout constants
-const V_LAYER_SPACING = 90; // px between layers top-to-bottom
-const V_LAYER_PAD = 50;     // top/bottom padding
-const V_MIN_SPACING = 140;  // min horizontal gap between nodes in same row
+const V_LAYER_SPACING = 110; // px between layers top-to-bottom
+const V_LAYER_PAD = 50;      // top/bottom padding
+const V_MIN_SPACING = 140;   // min horizontal gap between nodes in same row
+
+const ACTOR_FONT_SIZE = 11;
+const ACTOR_LINE_HEIGHT = 13;
+const ACTOR_MAX_CHARS = 13;
+
+function wrapActorLabel(name) {
+  if (name.length <= ACTOR_MAX_CHARS) return [name];
+  const idx = name.lastIndexOf(" ", ACTOR_MAX_CHARS);
+  if (idx <= 0) {
+    // No space — hard break
+    const line2 = name.slice(ACTOR_MAX_CHARS);
+    return [
+      name.slice(0, ACTOR_MAX_CHARS),
+      line2.length > ACTOR_MAX_CHARS ? line2.slice(0, ACTOR_MAX_CHARS - 1) + "…" : line2,
+    ];
+  }
+  const line2 = name.slice(idx + 1);
+  return [
+    name.slice(0, idx),
+    line2.length > ACTOR_MAX_CHARS ? line2.slice(0, ACTOR_MAX_CHARS - 1) + "…" : line2,
+  ];
+}
 
 function buildGraph(allStepSets) {
   const nodeMap = new Map();
@@ -149,9 +171,9 @@ function ActorNode({ node, pos, resultVersion, isShared, vertical }) {
         className="actor-node"
         key={`${node.id}-${resultVersion}`}
         textAnchor="middle"
-        y={ACTOR_R + 13}
+        y={ACTOR_R + 14}
         style={{
-          fontSize: 9,
+          fontSize: ACTOR_FONT_SIZE,
           fontFamily: "'Newsreader', serif",
           fill: node.isEndpoint ? "var(--text)" : "var(--text-dim)",
           fontWeight: node.isEndpoint ? 600 : 400,
@@ -159,7 +181,14 @@ function ActorNode({ node, pos, resultVersion, isShared, vertical }) {
           animationDelay: "0ms",
         }}
       >
-        {node.label.length > 18 ? node.label.slice(0, 17) + "…" : node.label}
+        {(() => {
+          const lines = wrapActorLabel(node.label);
+          return lines.length === 1
+            ? lines[0]
+            : lines.map((line, i) => (
+                <tspan key={i} x="0" dy={i === 0 ? 0 : ACTOR_LINE_HEIGHT}>{line}</tspan>
+              ));
+        })()}
       </text>
     </g>
   );
