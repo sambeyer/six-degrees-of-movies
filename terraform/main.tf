@@ -70,11 +70,14 @@ resource "google_service_account" "run" {
   display_name = "Actor Game — Cloud Run runtime SA"
 }
 
-# Allow the Terraform SA to attach the Cloud Run SA to Cloud Run services
+data "google_client_openid_userinfo" "current" {}
+
+# Allow the currently-authenticated identity (Terraform SA) to attach the
+# Cloud Run SA to Cloud Run services.
 resource "google_service_account_iam_member" "terraform_uses_run_sa" {
   service_account_id = google_service_account.run.name
   role               = "roles/iam.serviceAccountUser"
-  member             = "serviceAccount:${var.terraform_sa_email}"
+  member             = "serviceAccount:${data.google_client_openid_userinfo.current.email}"
 }
 
 # Grant the Cloud Run SA read/write access to the data bucket
