@@ -59,11 +59,14 @@ jobs:
 
       - name: Start container
         run: |
+          echo '${{ secrets.GCP_SA_KEY }}' > /tmp/gcp-key.json
           docker run -d \
             --name actor-game-test \
             -p 8000:8080 \
             -e ACTOR_GAME_DATA_DIR=/tmp/actor-game \
             -e GCS_BUCKET=${{ vars.GCS_BUCKET }} \
+            -e GOOGLE_APPLICATION_CREDENTIALS=/gcp-key.json \
+            -v /tmp/gcp-key.json:/gcp-key.json:ro \
             "${{ env.IMAGE_REPO }}:${{ env.IMAGE_TAG }}"
 
       - name: Wait for server to be healthy
