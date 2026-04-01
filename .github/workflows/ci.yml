@@ -1,0 +1,119 @@
+name: CI/CD
+
+on:
+  workflow_dispatch:
+
+env:
+  REGISTRY: australia-southeast2-docker.pkg.dev
+  IMAGE_REPO: australia-southeast2-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/actor-game/actor-game
+
+jobs:
+  ci-cd:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute image tag
+        run: echo "IMAGE_TAG=$(date +%Y-%m-%d)-${GITHUB_SHA:0:7}" >> "$GITHUB_ENV"
+
+      # ── Python + dependencies ──────────────────────────────────────────────
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies
+        run: uv sync
+
+      # ── Unit tests ─────────────────────────────────────────────────────────
+
+      - name: Run unit tests
+        run: uv run pytest tests/unit/ -v
+
+      # ── Authenticate with GCP ──────────────────────────────────────────────
+
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
+
+      # ── Build image ────────────────────────────────────────────────────────
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            --platform linux/amd64 \
+            -t "${{ env.IMAGE_REPO }}:${{ env.IMAGE_TAG }}" \
+            .
+
+      # ── Run container + integration tests ──────────────────────────────────
+
+      - name: Start container
+        run: |
+          docker run -d \
+            --name actor-game-test \
+            -p 8000:8080 \
+            -e ACTOR_GAME_DATA_DIR=/tmp/actor-game \
+            -e GCS_BUCKET=${{ vars.GCS_BUCKET }} \
+            "${{ env.IMAGE_REPO }}:${{ env.IMAGE_TAG }}"
+
+      - name: Wait for server to be healthy
+        run: |
+          echo "Waiting for /api/info to respond (up to 10 min for DB download)..."
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8000/api/info > /dev/null; then
+              echo "Server is healthy."
+              exit 0
+            fi
+            echo "  attempt $i/60 — retrying in 10s"
+            sleep 10
+          done
+          echo "Server failed to become healthy in time."
+          docker logs actor-game-test
+          exit 1
+
+      - name: Run integration tests
+        run: uv run pytest tests/integration/ -v
+        env:
+          INTEGRATION_BASE_URL: http://localhost:8000
+
+      - name: Stop container
+        if: always()
+        run: docker rm -f actor-game-test
+
+      # ── Push image and capture digest ──────────────────────────────────────
+
+      - name: Push image
+        run: |
+          docker push "${{ env.IMAGE_REPO }}:${{ env.IMAGE_TAG }}"
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "${{ env.IMAGE_REPO }}:${{ env.IMAGE_TAG }}" | grep -oP 'sha256:[a-f0-9]+')
+          echo "IMAGE_DIGEST=$DIGEST" >> "$GITHUB_ENV"
+
+      # ── Deploy via Terraform ───────────────────────────────────────────────
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform init
+        working-directory: terraform
+        run: |
+          terraform init \
+            -backend-config="bucket=terraform-six-degrees-imdb"
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Terraform apply
+        working-directory: terraform
+        run: terraform apply -auto-approve
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
+          IMAGE_DIGEST: ${{ env.IMAGE_DIGEST }}
+          TF_VAR_project_id: ${{ vars.GCP_PROJECT_ID }}
+          TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          TF_VAR_cloudflare_account_id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          TF_VAR_cloudflare_zone_id: ${{ vars.CLOUDFLARE_ZONE_ID }}

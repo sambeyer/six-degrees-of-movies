@@ -1,0 +1,27 @@
+version: '3'
+
+tasks:
+  test:unit:
+    desc: Run unit tests
+    cmds:
+      - uv run pytest tests/unit/ -v
+
+  test:integration:
+    desc: Run integration tests
+    cmds:
+      - uv run pytest tests/integration/ -v
+
+  build:
+    desc: Build Docker image for linux/amd64
+    cmds:
+      - docker build --platform linux/amd64 -t actor-game .
+
+  up:
+    desc: Start server locally via Docker Compose
+    cmds:
+      - docker compose up --build
+
+  down:
+    desc: Stop local server
+    cmds:
+      - docker compose down
