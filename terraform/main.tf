@@ -48,8 +48,6 @@ resource "google_artifact_registry_repository" "images" {
   docker_config {
     immutable_tags = true
   }
-
-  depends_on = [google_project_service.apis]
 }
 
 # ── GCS bucket — IMDB data storage ───────────────────────────────────────────
@@ -132,8 +130,6 @@ resource "google_cloud_run_v2_service" "app" {
       max_instance_count = var.max_instances
     }
   }
-
-  depends_on = [google_project_service.apis]
 }
 
 # Allow unauthenticated public access
