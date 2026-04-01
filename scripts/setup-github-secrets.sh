@@ -51,6 +51,22 @@ SA_EMAIL=$(prompt "SA_EMAIL" "Terraform service account email")
 KEY_FILE=$(mktemp /tmp/sa-key-XXXXXX.json)
 trap 'rm -f "$KEY_FILE"' EXIT
 
+echo "Granting required IAM roles to $SA_EMAIL..."
+for role in \
+  roles/run.admin \
+  roles/iam.serviceAccountAdmin \
+  roles/iam.serviceAccountUser \
+  roles/storage.admin \
+  roles/artifactregistry.admin \
+  roles/serviceusage.serviceUsageAdmin; do
+  gcloud projects add-iam-policy-binding "$GCP_PROJECT_ID" \
+    --member="serviceAccount:$SA_EMAIL" \
+    --role="$role" \
+    --quiet
+  echo "  ✓ $role"
+done
+echo ""
+
 echo "Creating new SA key for $SA_EMAIL..."
 gcloud iam service-accounts keys create "$KEY_FILE" \
   --iam-account="$SA_EMAIL" \
@@ -79,14 +95,17 @@ echo ""
 
 echo "=== GitHub Variables ==="
 GCS_BUCKET=$(prompt "GCS_BUCKET" "GCS data bucket name" "six-degrees-imdb-actor-game-data")
+TF_STATE_BUCKET=$(prompt "TF_STATE_BUCKET" "GCS Terraform state bucket name" "terraform-six-degrees-imdb")
 
-gh variable set GCP_PROJECT_ID  --repo="$REPO" --body="$GCP_PROJECT_ID"
-gh variable set GCS_BUCKET      --repo="$REPO" --body="$GCS_BUCKET"
+gh variable set GCP_PROJECT_ID    --repo="$REPO" --body="$GCP_PROJECT_ID"
+gh variable set GCS_BUCKET        --repo="$REPO" --body="$GCS_BUCKET"
+gh variable set TF_STATE_BUCKET   --repo="$REPO" --body="$TF_STATE_BUCKET"
 gh variable set CLOUDFLARE_ACCOUNT_ID --repo="$REPO" --body="$CF_ACCOUNT_ID"
 gh variable set CLOUDFLARE_ZONE_ID    --repo="$REPO" --body="$CF_ZONE_ID"
 
 echo "  ✓ GCP_PROJECT_ID"
 echo "  ✓ GCS_BUCKET"
+echo "  ✓ TF_STATE_BUCKET"
 echo "  ✓ CLOUDFLARE_ACCOUNT_ID"
 echo "  ✓ CLOUDFLARE_ZONE_ID"
 echo ""

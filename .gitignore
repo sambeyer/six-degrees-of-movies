@@ -19,6 +19,7 @@ actor-game-data/
 terraform/.terraform/
 terraform/terraform.tfvars
 terraform/backend.tf
+terraform/backend.tfvars
 terraform/terraform.tfstate
 terraform/terraform.tfstate.backup
 # .terraform.lock.hcl is intentionally committed (pins provider versions)

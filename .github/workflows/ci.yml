@@ -111,11 +111,16 @@ jobs:
 
       - uses: hashicorp/setup-terraform@v3
 
+      - name: Generate backend config
+        run: |
+          cat > terraform/backend.tfvars <<EOF
+          bucket = "${{ vars.TF_STATE_BUCKET }}"
+          prefix = "actor-game"
+          EOF
+
       - name: Terraform init
         working-directory: terraform
-        run: |
-          terraform init \
-            -backend-config="bucket=terraform-six-degrees-imdb"
+        run: terraform init -backend-config=backend.tfvars
         env:
           GOOGLE_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
 

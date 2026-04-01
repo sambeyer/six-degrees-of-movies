@@ -1,6 +1,10 @@
 terraform {
   required_version = ">= 1.5"
 
+  # Backend config is supplied via -backend-config=backend.tfvars (local) or
+  # -backend-config flags (CI). See backend.tfvars.example.
+  backend "gcs" {}
+
   required_providers {
     google = {
       source  = "hashicorp/google"

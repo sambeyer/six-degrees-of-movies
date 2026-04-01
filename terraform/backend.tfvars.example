@@ -1,0 +1,19 @@
+# Copy to backend.tfvars and fill in your values, then run:
+#   terraform init -backend-config=backend.tfvars
+#
+# backend.tfvars is gitignored — never commit it.
+# The state bucket must already exist (it is not managed by this Terraform config).
+#
+# ── Required SA permissions (grant on the project) ───────────────────────────
+#   roles/run.admin
+#   roles/iam.serviceAccountAdmin
+#   roles/iam.serviceAccountUser
+#   roles/storage.admin
+#   roles/artifactregistry.admin
+#   roles/serviceusage.serviceUsageAdmin
+#
+# Run scripts/setup-github-secrets.sh to create the SA key and grant these
+# roles automatically.
+
+bucket = "your-tf-state-bucket"
+prefix = "actor-game"
