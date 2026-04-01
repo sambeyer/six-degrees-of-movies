@@ -22,20 +22,6 @@ provider "cloudflare" {
   api_token = var.cloudflare_api_token
 }
 
-# ── Enable required GCP APIs ──────────────────────────────────────────────────
-
-resource "google_project_service" "apis" {
-  for_each = toset([
-    "run.googleapis.com",
-    "artifactregistry.googleapis.com",
-    "storage.googleapis.com",
-    "iam.googleapis.com",
-  ])
-
-  service            = each.key
-  disable_on_destroy = false
-}
-
 # ── Docker image — build locally, skip in CI ─────────────────────────────────
 # Runs build_and_push.sh during `terraform plan`. On a developer laptop it
 # builds and pushes the image; in CI (any GITHUB_* env var present) it skips
@@ -204,4 +190,3 @@ resource "cloudflare_record" "root" {
   type    = "A"
   proxied = true
 }
-
