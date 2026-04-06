@@ -10,12 +10,38 @@ locals {
   worker_script = <<-JS
     const UPSTREAM = "${local.cloudrun_hostname}";
 
+    // Bot scanners probe for CMS/framework paths that don't exist here.
+    // Reject them immediately — before making any outbound fetch to Cloud Run —
+    // to avoid triggering expensive cold starts on Cloud Run.
+    const BOT_PATH_PATTERNS = [
+      // WordPress scanners
+      /^\/wp-/i,
+      /^\/wordpress/i,
+      /^\/xmlrpc\.php/i,
+      /\/wp-includes\//i,
+      // Common CMS sub-paths (e.g. /cms/, /blog/, /shop/ prefixes used by WP scanners)
+      /\/(cms|site|test|wp|wp1|wp2|shop|blog|news|website|sito|media|web|2018|2019|2020|2021|2022|2023|2024)\/wp-/i,
+      // Credential/config harvesting
+      /^\/\.env/i,
+      /^\/backend\/\.env/i,
+      /^\/\.git\//i,
+      /^\/admin\/serverConfig\.json/i,
+      // Other CMS/framework probes
+      /^\/phpmyadmin/i,
+      /^\/admin\//i,
+    ];
+
     addEventListener('fetch', event => {
       event.respondWith(handleRequest(event.request));
     });
 
     async function handleRequest(request) {
       const url = new URL(request.url);
+      for (const pattern of BOT_PATH_PATTERNS) {
+        if (pattern.test(url.pathname)) {
+          return new Response('Not Found', { status: 404 });
+        }
+      }
       url.hostname = UPSTREAM;
       url.protocol = 'https:';
       return fetch(new Request(url, request));
