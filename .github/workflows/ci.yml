@@ -46,9 +46,19 @@ jobs:
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
 
+      - name: Check if image already exists in registry
+        run: |
+          if gcloud artifacts docker images describe "${{ env.IMAGE_REPO }}:${{ env.IMAGE_TAG }}" --quiet 2>/dev/null; then
+            echo "Image already exists — skipping build and tests."
+            echo "IMAGE_EXISTS=true" >> "$GITHUB_ENV"
+          else
+            echo "IMAGE_EXISTS=false" >> "$GITHUB_ENV"
+          fi
+
       # ── Build image ────────────────────────────────────────────────────────
 
       - name: Build Docker image
+        if: env.IMAGE_EXISTS != 'true'
         run: |
           docker build \
             --platform linux/amd64 \
@@ -58,6 +68,7 @@ jobs:
       # ── Run container + integration tests ──────────────────────────────────
 
       - name: Start container
+        if: env.IMAGE_EXISTS != 'true'
         run: |
           echo '${{ secrets.GCP_SA_KEY }}' > /tmp/gcp-key.json
           docker run -d \
@@ -70,6 +81,7 @@ jobs:
             "${{ env.IMAGE_REPO }}:${{ env.IMAGE_TAG }}"
 
       - name: Wait for server to be healthy
+        if: env.IMAGE_EXISTS != 'true'
         run: |
           echo "Waiting for /api/info to respond (up to 10 min for DB download)..."
           for i in $(seq 1 60); do
@@ -91,20 +103,28 @@ jobs:
           exit 1
 
       - name: Run integration tests
+        if: env.IMAGE_EXISTS != 'true'
         run: uv run pytest tests/integration/ -v
         env:
           INTEGRATION_BASE_URL: http://localhost:8000
 
       - name: Stop container
-        if: always()
+        if: always() && env.IMAGE_EXISTS != 'true'
         run: docker rm -f actor-game-test
 
       # ── Push image and capture digest ──────────────────────────────────────
 
       - name: Push image
+        if: env.IMAGE_EXISTS != 'true'
         run: |
           docker push "${{ env.IMAGE_REPO }}:${{ env.IMAGE_TAG }}"
           DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "${{ env.IMAGE_REPO }}:${{ env.IMAGE_TAG }}" | grep -oP 'sha256:[a-f0-9]+')
+          echo "IMAGE_DIGEST=$DIGEST" >> "$GITHUB_ENV"
+
+      - name: Get digest for existing image
+        if: env.IMAGE_EXISTS == 'true'
+        run: |
+          DIGEST=$(gcloud artifacts docker images describe "${{ env.IMAGE_REPO }}:${{ env.IMAGE_TAG }}" --format='get(image_summary.digest)')
           echo "IMAGE_DIGEST=$DIGEST" >> "$GITHUB_ENV"
 
       # ── Deploy via Terraform ───────────────────────────────────────────────
