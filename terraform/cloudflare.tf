@@ -11,25 +11,43 @@ locals {
     const UPSTREAM = "${local.cloudrun_hostname}";
 
     // Bot scanners probe for CMS/framework paths that don't exist here.
-    // Reject them immediately — before making any outbound fetch to Cloud Run —
-    // to avoid triggering expensive cold starts on Cloud Run.
-    const BOT_PATH_PATTERNS = [
-      // WordPress scanners
+    // Tarpit them all — hold the connection open for ~25 seconds to waste the
+    // scanner's time. setTimeout is async so CPU cost is negligible.
+    const BOT_TARPIT_PATTERNS = [
       /^\/wp-/i,
       /^\/wordpress/i,
       /^\/xmlrpc\.php/i,
       /\/wp-includes\//i,
-      // Common CMS sub-paths (e.g. /cms/, /blog/, /shop/ prefixes used by WP scanners)
       /\/(cms|site|test|wp|wp1|wp2|shop|blog|news|website|sito|media|web|2018|2019|2020|2021|2022|2023|2024)\/wp-/i,
-      // Credential/config harvesting
       /^\/\.env/i,
       /^\/backend\/\.env/i,
       /^\/\.git\//i,
       /^\/admin\/serverConfig\.json/i,
-      // Other CMS/framework probes
       /^\/phpmyadmin/i,
       /^\/admin\//i,
     ];
+
+    // Streams a fake response one byte every ~1.4s, holding the connection open
+    // for ~25 seconds total (safely under Cloudflare's 30s wall-clock limit).
+    function tarpit() {
+      const payload = '<!-- Loading... -->';
+      const encoder = new TextEncoder();
+      let i = 0;
+      const stream = new ReadableStream({
+        async pull(controller) {
+          if (i < payload.length) {
+            await new Promise(r => setTimeout(r, 1400));
+            controller.enqueue(encoder.encode(payload[i++]));
+          } else {
+            controller.close();
+          }
+        }
+      });
+      return new Response(stream, {
+        status: 200,
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      });
+    }
 
     addEventListener('fetch', event => {
       event.respondWith(handleRequest(event.request));
@@ -37,10 +55,8 @@ locals {
 
     async function handleRequest(request) {
       const url = new URL(request.url);
-      for (const pattern of BOT_PATH_PATTERNS) {
-        if (pattern.test(url.pathname)) {
-          return new Response('Not Found', { status: 404 });
-        }
+      for (const pattern of BOT_TARPIT_PATTERNS) {
+        if (pattern.test(url.pathname)) return tarpit();
       }
       url.hostname = UPSTREAM;
       url.protocol = 'https:';
