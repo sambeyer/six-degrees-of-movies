@@ -96,6 +96,7 @@ resource "google_cloud_run_v2_service" "app" {
           cpu    = "1"
           memory = "2Gi"
         }
+        cpu_idle = true
       }
 
       # Allow enough time for the DB to download from GCS on cold start.
