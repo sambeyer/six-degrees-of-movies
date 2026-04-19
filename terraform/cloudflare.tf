@@ -1,14 +1,28 @@
-# ── Cloudflare Worker — reverse proxy to Cloud Run ────────────────────────────
+# ── Cloudflare Pages — static frontend ───────────────────────────────────────
+# The React build is deployed here via `wrangler pages deploy` in CI.
+# The custom domain stays on the Worker (below); Pages serves as the asset
+# origin so Cloud Run only handles /api/* traffic.
+
+resource "cloudflare_pages_project" "frontend" {
+  account_id        = var.cloudflare_account_id
+  name              = "sixdegreesofmovies"
+  production_branch = "main"
+}
+
+# ── Cloudflare Worker — bot tarpit + API proxy ────────────────────────────────
 # australia-southeast2 doesn't support Cloud Run domain mappings, so we use a
 # Cloudflare Worker to proxy sixdegreesofmovies.com → the Cloud Run URL.
+# Static files are forwarded to Cloudflare Pages; only /api/* hits Cloud Run.
 # The Worker is re-deployed on every `terraform apply`, keeping the Cloud Run
 # URL in sync automatically after each image deploy.
 
 locals {
   cloudrun_hostname = trimprefix(google_cloud_run_v2_service.app.uri, "https://")
+  pages_hostname    = "${cloudflare_pages_project.frontend.name}.pages.dev"
 
   worker_script = <<-JS
     const UPSTREAM = "${local.cloudrun_hostname}";
+    const PAGES_HOST = "${local.pages_hostname}";
 
     // Bot scanners probe for CMS/framework paths that don't exist here.
     // Tarpit them all — hold the connection open for ~25 seconds to waste the
@@ -58,7 +72,8 @@ locals {
       for (const pattern of BOT_TARPIT_PATTERNS) {
         if (pattern.test(url.pathname)) return tarpit();
       }
-      url.hostname = UPSTREAM;
+      // API requests go to Cloud Run; everything else is served from Pages.
+      url.hostname = url.pathname.startsWith('/api/') ? UPSTREAM : PAGES_HOST;
       url.protocol = 'https:';
       return fetch(new Request(url, request));
     }
